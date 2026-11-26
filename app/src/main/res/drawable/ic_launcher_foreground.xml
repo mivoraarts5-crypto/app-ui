@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Tropical wave accent -->
+    <path
+        android:fillColor="#42A5F5"
+        android:pathData="M24,74 C34,68 44,72 54,74 C64,76 74,70 84,74 L84,82 C74,85 34,85 24,82 Z" />
+    <!-- Island base -->
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M34,76 C44,68 64,68 74,76 C64,81 44,81 34,76 Z" />
+    <!-- Curved palm trunk -->
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M53,73 Q48,57 46,43 L50,42 Q53,56 58,72 Z" />
+    <!-- Palm crown fronds -->
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M48,43 C38,35 28,37 22,45 C30,41 39,41 47,45 Z" />
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M48,43 C36,41 26,48 23,58 C30,51 39,47 48,46 Z" />
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M48,43 C42,31 33,26 26,28 C33,32 41,37 47,43 Z" />
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M48,43 C48,30 56,24 65,26 C57,31 52,37 49,43 Z" />
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M48,43 C58,33 70,35 77,42 C68,39 58,40 49,45 Z" />
+    <path
+        android:fillColor="#0A0A0A"
+        android:pathData="M48,43 C60,41 70,49 72,58 C65,50 57,47 49,46 Z" />
+</vector>

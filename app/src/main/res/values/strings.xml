@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">Tropical</string>
+    <string name="mode_mockup">19:19</string>
+    <string name="mode_live">Live</string>
+    <string name="search_here">SEARCH HERE.</string>
+    <string name="search_placeholder">Search apps or web…</string>
+    <string name="search_inline_hint">Type to search…</string>
+    <string name="search_hint">Press Enter to search, or ✕ to close.</string>
+    <string name="hello_label">HELLO</string>
+    <string name="hello_expanded_label">TROPICAL DAY</string>
+    <string name="clock_mode_mockup_tag">MOCKUP TIME</string>
+    <string name="clock_mode_live_tag">LIVE TIME</string>
+    <string name="close_search_desc">Close search</string>
+    <string name="open_search_desc">Open search</string>
+    <string name="expand_full_search_desc">Expand full search</string>
+    <string name="toggle_time_mode_desc">Toggle time display mode</string>
+    <string name="reset_morphs_desc">Reset all morphed objects</string>
+    <string name="sun_area_desc">Tropical sun</string>
+    <string name="palm_area_desc">Palm trees</string>
+    <string name="wave_area_desc">Ocean wave</string>
+    <string name="island_area_desc">Coastal island</string>
+    <string name="clock_area_desc">Clock display</string>
+    <string name="date_area_desc">Greeting and date card</string>
+    <string name="opening_app_fmt">Opening %1$s</string>
+    <string name="searching_for_fmt">Searching for \"%1$s\"…</string>
+    <string name="app_music">Music</string>
+    <string name="app_browser">Browser</string>
+    <string name="app_instagram">Instagram</string>
+    <string name="app_telegram">Telegram</string>
+    <string name="app_whatsapp">WhatsApp</string>
+    <string name="app_twitter">Twitter</string>
+    <string name="app_notes">Notes</string>
+    <string name="app_phone">Phone</string>
+</resources>

@@ -1,0 +1,6 @@
+{
+  "name": "Tropical",
+  "description": "Minimalist tropical mobile home screen UI with live clock, vertical search widget, and quick-launch app dock.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

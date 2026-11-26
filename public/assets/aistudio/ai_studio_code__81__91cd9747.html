@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tropical Minimalist Mobile UI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&family=Montserrat:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-stage: #e9ecef;
+      --phone-frame: #d8dce0;
+      --screen-bg: #ffffff;
+      --orange: #f59300;
+      --blue-wave: #42a5f5;
+      --blue-btn: #3b98f5;
+      --amber: #f5a623;
+      --black: #0a0a0a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, #f7f8fa 0%, #dce1e7 100%);
+      font-family: 'Montserrat', sans-serif;
+      padding: 24px;
+      gap: 16px;
+    }
+
+    /* Optional Demo Controls outside the phone */
+    .controls {
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .controls button {
+      border: none;
+      background: #ffffff;
+      color: #222;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .controls button:hover {
+      transform: translateY(-1px);
+      background: #f3f5f8;
+    }
+
+    .controls button.active {
+      background: #111;
+      color: #fff;
+    }
+
+    /* Phone Outer Shell */
+    .phone-shell {
+      width: 360px;
+      height: 760px;
+      background: linear-gradient(145deg, #eef0f3, #cfd4da);
+      border-radius: 44px;
+      padding: 10px;
+      box-shadow:
+        0 30px 60px rgba(0, 0, 0, 0.22),
+        0 6px 18px rgba(0, 0, 0, 0.1),
+        inset 0 2px 3px rgba(255, 255, 255, 0.8);
+      position: relative;
+    }
+
+    /* Side hardware buttons */
+    .phone-shell::before {
+      content: "";
+      position: absolute;
+      left: -3px;
+      top: 130px;
+      width: 3px;
+      height: 52px;
+      background: #9aa0a6;
+      border-radius: 3px 0 0 3px;
+    }
+
+    .phone-shell::after {
+      content: "";
+      position: absolute;
+      left: -3px;
+      top: 198px;
+      width: 3px;
+      height: 36px;
+      background: #9aa0a6;
+      border-radius: 3px 0 0 3px;
+    }
+
+    /* Actual UI Screen */
+    .screen {
+      width: 100%;
+      height: 100%;
+      background: var(--screen-bg);
+      border-radius: 36px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Background Vector Layer */
+    .bg-art {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* Top Right Clock */
+    .clock {
+      position: absolute;
+      top: 56px;
+      right: 34px;
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 56px;
+      line-height: 1;
+      color: #ffffff;
+      letter-spacing: 2px;
+      z-index: 3;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Left App Dock */
+    .app-dock {
+      position: absolute;
+      left: 20px;
+      top: 96px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 4;
+    }
+
+    .app-icon {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), filter 0.2s ease;
+      position: relative;
+    }
+
+    .app-icon:hover {
+      transform: scale(1.14) translateX(3px);
+    }
+
+    .app-icon:active {
+      transform: scale(0.95);
+    }
+
+    .app-icon svg {
+      width: 34px;
+      height: 34px;
+      filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.1));
+    }
+
+    /* Vertical Search Widget */
+    .search-widget {
+      position: absolute;
+      left: 96px;
+      top: 204px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 4;
+    }
+
+    .search-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--blue-btn);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(59, 152, 245, 0.32);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .search-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 8px 18px rgba(59, 152, 245, 0.42);
+    }
+
+    .search-line {
+      width: 2px;
+      height: 112px;
+      background: #1a1a1a;
+      margin: 26px 0 22px;
+      border-radius: 2px;
+    }
+
+    .search-label {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3.5px;
+      color: #111111;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .search-label:hover {
+      opacity: 0.65;
+    }
+
+    /* Interactive Search Overlay */
+    .search-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(8px);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      padding: 60px 28px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .search-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .search-input-wrap {
+      display: flex;
+      align-items: center;
+      border-bottom: 2px solid #111;
+      padding-bottom: 10px;
+      gap: 10px;
+    }
+
+    .search-input-wrap input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      outline: none;
+      color: #111;
+    }
+
+    .close-search {
+      border: none;
+      background: #111;
+      color: #fff;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .search-hint {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* Bottom Right Greeting & Date */
+    .date-widget {
+      position: absolute;
+      right: 28px;
+      bottom: 46px;
+      z-index: 4;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .hello-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: -4px;
+    }
+
+    .hello-text {
+      font-size: 14px;
+      font-weight: 400;
+      letter-spacing: 1.5px;
+      color: #f0f0f0;
+    }
+
+    .dash {
+      display: inline-block;
+      height: 6px;
+      background: var(--amber);
+    }
+
+    .hello-row .dash {
+      width: 26px;
+    }
+
+    .day-text {
+      font-size: 56px;
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 1px;
+    }
+
+    .date-row {
+      align-self: flex-end;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .date-row .dash {
+      width: 22px;
+    }
+
+    .date-text {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      color: #f5f5f5;
+    }
+
+    /* Toast feedback when clicking an icon */
+    .toast {
+      position: absolute;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(17, 17, 17, 0.9);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 999px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 30;
+      transition: all 0.25s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="controls">
+    <button id="btnStatic" class="active" onclick="setMode('static')">Mockup Time (19:19)</button>
+    <button id="btnLive" onclick="setMode('live')">Live Time</button>
+  </div>
+
+  <div class="phone-shell">
+    <div class="screen">
+
+      <!-- Vector Background Shapes & Palm Silhouettes -->
+      <svg class="bg-art" viewBox="0 0 340 740" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Top Right Orange Sun Blob -->
+        <path d="M 86,0 C 90,140 202,216 340,188 L 340,0 Z" fill="#f59300" />
+
+        <!-- Bottom Left Blue Wave -->
+        <path d="M 0,582 C 35,555 58,510 92,508 C 128,506 142,545 190,545 L 220,740 L 0,740 Z" fill="#42a5f5" />
+
+        <!-- Bottom Right Black Island -->
+        <path d="M 340,425 C 288,430 230,480 175,542 C 130,592 145,665 186,740 L 340,740 Z" fill="#0a0a0a" />
+
+        <!-- Palm Trees Silhouette -->
+        <g fill="#0a0a0a">
+          <!-- Grass tufts at base -->
+          <path d="M 272,462 L 265,446 L 276,456 L 278,440 L 284,454 L 292,442 L 290,456 L 302,445 L 296,460 Z" />
+
+          <!-- Tall Left Palm Trunk -->
+          <path d="M 278,458 Q 256,396 244,338 L 250,337 Q 264,394 287,454 Z" />
+          <!-- Tall Palm Crown & Fronds -->
+          <g transform="translate(247, 338)">
+            <path d="M 0,0 C -20,-18 -46,-14 -60,2 C -42,-4 -22,-4 -4,4 Z" />
+            <path d="M 0,0 C -26,-8 -52,8 -60,30 C -44,16 -24,8 -2,6 Z" />
+            <path d="M 0,0 C -14,-28 -32,-40 -48,-36 C -32,-26 -16,-14 -2,0 Z" />
+            <path d="M 0,0 C -2,-30 14,-44 34,-42 C 16,-30 6,-16 3,0 Z" />
+            <path d="M 0,0 C 20,-24 46,-20 62,-4 C 42,-10 22,-8 4,3 Z" />
+            <path d="M 0,0 C 26,-6 48,12 52,32 C 38,16 20,8 2,6 Z" />
+            <path d="M 0,0 C 12,12 20,28 18,44 C 12,28 6,16 0,5 Z" />
+          </g>
+
+          <!-- Shorter Right Palm Trunk -->
+          <path d="M 294,452 Q 288,412 282,380 L 287,379 Q 294,410 301,450 Z" />
+          <!-- Shorter Palm Crown & Fronds -->
+          <g transform="translate(284, 380)">
+            <path d="M 0,0 C -18,-14 -38,-8 -48,8 C -34,0 -18,-2 -3,4 Z" />
+            <path d="M 0,0 C -20,2 -36,18 -40,34 C -28,22 -14,12 -1,6 Z" />
+            <path d="M 0,0 C -8,-22 -22,-32 -34,-28 C -20,-20 -10,-10 -1,0 Z" />
+            <path d="M 0,0 C 6,-24 24,-30 38,-22 C 22,-18 10,-10 2,0 Z" />
+            <path d="M 0,0 C 20,-10 38,2 44,18 C 30,8 16,4 2,4 Z" />
+            <path d="M 0,0 C 16,10 24,26 22,40 C 16,26 8,14 0,5 Z" />
+          </g>
+        </g>
+      </svg>
+
+      <!-- Clock -->
+      <div class="clock" id="clock">19:19</div>
+
+      <!-- Left App Icons -->
+      <div class="app-dock">
+        <!-- 1. Music -->
+        <div class="app-icon" onclick="openApp('Music')" title="Music">
+          <svg viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" fill="#d93b3b" />
+            <path d="M22 11v12.5a4.5 4.5 0 1 1-3-4.24V13l8-2.2v4.2l-5 1.4z" fill="#fff" />
+          </svg>
+        </div>
+
+        <!-- 2. Browser -->
+        <div class="app-icon" onclick="openApp('Browser')" title="Browser">
+          <svg viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" fill="#4aa8f0" />
+            <path d="M9 19c4-6 14-8 22-3-5 1-11 4-15 9-3 3-5 4-7-6z" fill="#ffffff" opacity="0.9" />
+            <path d="M12 29c7 3 15 0 19-6-4 1-10-1-14-3-4-2-7 3-5 9z" fill="#bfe2ff" />
+          </svg>
+        </div>
+
+        <!-- 3. Instagram -->
+        <div class="app-icon" onclick="openApp('Instagram')" title="Instagram">
+          <svg viewBox="0 0 40 40">
+            <defs>
+              <linearGradient id="igGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#feda75" />
+                <stop offset="30%" stop-color="#fa7e1e" />
+                <stop offset="65%" stop-color="#d62976" />
+                <stop offset="100%" stop-color="#4f5bd5" />
+              </linearGradient>
+            </defs>
+            <rect x="4" y="4" width="32" height="32" rx="9" fill="url(#igGrad)" />
+            <rect x="10" y="10" width="20" height="20" rx="5.5" fill="none" stroke="#fff" stroke-width="2.4" />
+            <circle cx="20" cy="20" r="4.6" fill="none" stroke="#fff" stroke-width="2.4" />
+            <circle cx="26.2" cy="13.8" r="1.4" fill="#fff" />
+          </svg>
+        </div>
+
+        <!-- 4. Telegram -->
+        <div class="app-icon" onclick="openApp('Telegram')" title="Telegram">
+          <svg viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" fill="#27a7e7" />
+            <path d="M28.5 12.2L10.4 19.3c-1.2.5-1.2 1.2-.2 1.5l4.6 1.4 10.7-6.7c.5-.3 1-.1.6.2l-8.6 7.8-.3 4.8c.5 0 .7-.2 1-.5l2.3-2.2 4.7 3.5c.9.5 1.5.2 1.7-.8l3.1-14.6c.3-1.3-.5-1.9-1.5-1.5z" fill="#fff" />
+          </svg>
+        </div>
+
+        <!-- 5. WhatsApp -->
+        <div class="app-icon" onclick="openApp('WhatsApp')" title="WhatsApp">
+          <svg viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" fill="#25d366" />
+            <path d="M20 10.5a9.5 9.5 0 0 0-8.2 14.3L10.5 29.5l4.9-1.3A9.5 9.5 0 1 0 20 10.5z" fill="none" stroke="#fff" stroke-width="2.3" />
+            <path d="M16.8 15.8c-.3-.6-.6-.6-.9-.6h-.7c-.3 0-.7.1-1 .5s-1.2 1.2-1.2 2.9 1.2 3.4 1.4 3.6c.2.2 2.4 3.8 5.9 5.2 2.9 1.1 3.5.9 4.1.8.6-.1 2-.8 2.3-1.6.3-.8.3-1.5.2-1.6-.1-.1-.4-.2-.8-.4s-2.1-1-2.4-1.1c-.3-.1-.6-.2-.8.2s-.9 1.1-1.1 1.4c-.2.2-.4.3-.8.1-.4-.2-1.6-.6-3-1.9-1.1-1-1.9-2.2-2.1-2.6-.2-.4 0-.6.2-.8.2-.2.4-.5.6-.7.2-.2.2-.4.3-.6.1-.2 0-.5-.1-.7-.1-.2-.8-1.9-1-2.4z" fill="#fff" />
+          </svg>
+        </div>
+
+        <!-- 6. Bird / Twitter -->
+        <div class="app-icon" onclick="openApp('Twitter')" title="Twitter">
+          <svg viewBox="0 0 40 40">
+            <path d="M33 13c-1 .5-2.1.8-3.2 1 1.2-.7 2-1.8 2.4-3.1-1.1.6-2.3 1.1-3.6 1.4-1-1.1-2.5-1.8-4.1-1.8-3.1 0-5.6 2.5-5.6 5.6 0 .4 0 .9.1 1.3-4.7-.2-8.8-2.5-11.6-5.9-.5.8-.8 1.8-.8 2.8 0 1.9 1 3.7 2.5 4.7-.9 0-1.8-.3-2.5-.7v.1c0 2.7 1.9 5 4.5 5.5-.5.1-1 .2-1.5.2-.4 0-.7 0-1.1-.1.7 2.2 2.8 3.9 5.3 3.9-1.9 1.5-4.4 2.4-7 2.4-.5 0-.9 0-1.3-.1 2.5 1.6 5.5 2.5 8.6 2.5 10.4 0 16-8.6 16-16v-.7c1.1-.8 2.1-1.8 2.8-2.9z" fill="#32a8e6" />
+          </svg>
+        </div>
+
+        <!-- 7. Notes / Files -->
+        <div class="app-icon" onclick="openApp('Notes')" title="Notes">
+          <svg viewBox="0 0 40 40">
+            <rect x="7" y="7" width="24" height="26" rx="4" fill="#ffbe1a" />
+            <rect x="11" y="10" width="22" height="24" rx="4" fill="#ffd23f" />
+            <line x1="16" y1="17" x2="27" y2="17" stroke="#fff" stroke-width="2.4" stroke-linecap="round" />
+            <line x1="16" y1="22" x2="27" y2="22" stroke="#fff" stroke-width="2.4" stroke-linecap="round" />
+            <line x1="16" y1="27" x2="23" y2="27" stroke="#fff" stroke-width="2.4" stroke-linecap="round" />
+          </svg>
+        </div>
+
+        <!-- 8. Phone -->
+        <div class="app-icon" onclick="openApp('Phone')" title="Phone">
+          <svg viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" fill="#f1f5f2" />
+            <path d="M13.5 11.5c1.1-.8 2.5-.5 3.3.6l1.7 2.4c.7 1 .5 2.3-.4 3l-1.1.9c.9 1.8 2.3 3.2 4.1 4.1l.9-1.1c.7-.9 2-1.1 3-.4l2.4 1.7c1.1.8 1.4 2.2.6 3.3l-1.1 1.4c-1 1.2-2.7 1.7-4.3 1.2-4.8-1.6-9.8-6.6-11.4-11.4-.5-1.6 0-3.3 1.2-4.3l1.1-1.4z" fill="#4caf50" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Vertical Search Widget -->
+      <div class="search-widget">
+        <button class="search-btn" onclick="toggleSearch(true)" aria-label="Search">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <line x1="15.5" y1="15.5" x2="20" y2="20" />
+            <circle cx="10.5" cy="9" r="1.8" fill="#fff" stroke="none" />
+            <path d="M7.8 13.5c.6-1.2 1.6-1.8 2.7-1.8s2.1.6 2.7 1.8" stroke-width="1.6" />
+          </svg>
+        </button>
+        <div class="search-line"></div>
+        <div class="search-label" onclick="toggleSearch(true)">SEARCH HERE.</div>
+      </div>
+
+      <!-- Bottom Right Date & Greeting -->
+      <div class="date-widget">
+        <div class="hello-row">
+          <span class="hello-text">HELLO</span>
+          <span class="dash"></span>
+        </div>
+        <div class="day-text" id="dayText">MON</div>
+        <div class="date-row">
+          <span class="dash"></span>
+          <span class="date-text" id="dateText">SEP. 13</span>
+        </div>
+      </div>
+
+      <!-- Interactive Search Overlay -->
+      <div class="search-overlay" id="searchOverlay">
+        <div class="search-input-wrap">
+          <input type="text" id="searchInput" placeholder="Search apps or web..." onkeydown="handleSearchKey(event)" />
+          <button class="close-search" onclick="toggleSearch(false)">✕</button>
+        </div>
+        <div class="search-hint">Press Enter to search, or ✕ to close.</div>
+      </div>
+
+      <!-- App Launch Toast -->
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+
+  <script>
+    let mode = 'static';
+    let timer = null;
+
+    const clockEl = document.getElementById('clock');
+    const dayEl = document.getElementById('dayText');
+    const dateEl = document.getElementById('dateText');
+    const searchOverlay = document.getElementById('searchOverlay');
+    const searchInput = document.getElementById('searchInput');
+    const toastEl = document.getElementById('toast');
+
+    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const months = ['JAN.', 'FEB.', 'MAR.', 'APR.', 'MAY', 'JUN.', 'JUL.', 'AUG.', 'SEP.', 'OCT.', 'NOV.', 'DEC.'];
+
+    function updateTime() {
+      if (mode === 'static') {
+        clockEl.textContent = '19:19';
+        dayEl.textContent = 'MON';
+        dateEl.textContent = 'SEP. 13';
+        return;
+      }
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      clockEl.textContent = `${hh}:${mm}`;
+      dayEl.textContent = days[now.getDay()];
+      dateEl.textContent = `${months[now.getMonth()]} ${now.getDate()}`;
+    }
+
+    function setMode(newMode) {
+      mode = newMode;
+      document.getElementById('btnStatic').classList.toggle('active', mode === 'static');
+      document.getElementById('btnLive').classList.toggle('active', mode === 'live');
+      updateTime();
+    }
+
+    function toggleSearch(open) {
+      searchOverlay.classList.toggle('open', open);
+      if (open) {
+        setTimeout(() => searchInput.focus(), 100);
+      } else {
+        searchInput.value = '';
+      }
+    }
+
+    function handleSearchKey(e) {
+      if (e.key === 'Enter' && searchInput.value.trim()) {
+        const q = searchInput.value.trim();
+        toggleSearch(false);
+        showToast(`Searching for "${q}"...`);
+      } else if (e.key === 'Escape') {
+        toggleSearch(false);
+      }
+    }
+
+    function openApp(name) {
+      showToast(`Opening ${name}`);
+    }
+
+    let toastTimeout;
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 1800);
+    }
+
+    timer = setInterval(updateTime, 1000);
+    updateTime();
+  </script>
+</body>
+</html>
