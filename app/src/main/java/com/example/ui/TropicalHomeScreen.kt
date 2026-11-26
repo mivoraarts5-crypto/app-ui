@@ -19,6 +19,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -47,7 +48,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.OpenInFull
@@ -66,9 +66,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -77,7 +75,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -88,10 +85,13 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.ui.components.DockAppButton
 import com.example.ui.components.DockAppGlyph
+import com.example.ui.components.ExternalCanvasToolbar
+import com.example.ui.components.FreehandCanvasCard
 import com.example.ui.components.SearchPersonGlyph
 import com.example.ui.components.TropicalBackground
 import com.example.ui.theme.LocalTropicalPalette
@@ -126,6 +126,15 @@ fun TropicalHomeScreen(
         onSearchQueryChange = viewModel::updateSearchQuery,
         onSubmitSearch = viewModel::submitSearch,
         onResetAll = viewModel::resetAllMorphs,
+        onStartStroke = viewModel::startStroke,
+        onAppendStrokePoint = viewModel::appendStrokePoint,
+        onFinishStroke = viewModel::finishStroke,
+        onSelectBrushColor = viewModel::selectBrushColor,
+        onCycleBrushSize = viewModel::cycleBrushSize,
+        onSelectCanvasBgColor = viewModel::selectCanvasBgColor,
+        onSelectCanvasRatio = viewModel::selectCanvasRatio,
+        onUndoStroke = viewModel::undoStroke,
+        onClearStrokes = viewModel::clearStrokes,
         modifier = modifier,
     )
 }
@@ -148,11 +157,19 @@ fun TropicalHomeContent(
     onSearchQueryChange: (String) -> Unit,
     onSubmitSearch: () -> Unit,
     onResetAll: () -> Unit,
+    onStartStroke: (Offset) -> Unit,
+    onAppendStrokePoint: (Offset) -> Unit,
+    onFinishStroke: () -> Unit,
+    onSelectBrushColor: (Int) -> Unit,
+    onCycleBrushSize: () -> Unit,
+    onSelectCanvasBgColor: (Int) -> Unit,
+    onSelectCanvasRatio: (CanvasRatio) -> Unit,
+    onUndoStroke: () -> Unit,
+    onClearStrokes: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalTropicalPalette.current
 
-    // Collapse inline search capsule if user presses system back
     BackHandler(enabled = uiState.isSearchCapsuleExpanded && !uiState.isSearchOpen) {
         onToggleSearchCapsule()
     }
@@ -162,7 +179,6 @@ fun TropicalHomeContent(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        // Full-bleed edge-to-edge tropical vector art with per-object ColorOS morphing
         TropicalBackground(
             isSunMorphed = uiState.isSunMorphed,
             isWaveMorphed = uiState.isWaveMorphed,
@@ -175,7 +191,6 @@ fun TropicalHomeContent(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Safe-area foreground widgets
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -183,121 +198,163 @@ fun TropicalHomeContent(
         ) {
             val safeW = maxWidth
             val safeH = maxHeight
-            val isCompactHeight = safeH < 640.dp
-
-            // Top-left Time Mode Pill + fluid Reset chip when any object is morphed
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 16.dp, top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                TimeModePill(
-                    currentMode = uiState.timeMode,
-                    onSelectMode = onTimeModeSelected,
-                )
-
-                AnimatedVisibility(
-                    visible = uiState.hasAnyMorph,
-                    enter = fadeIn(tween(200)) + scaleIn(
-                        initialScale = 0.7f,
-                        animationSpec = colorOsSpring(),
-                    ),
-                    exit = fadeOut(tween(160)) + scaleOut(targetScale = 0.75f),
-                ) {
-                    val resetDesc = stringResource(R.string.reset_morphs_desc)
-                    Surface(
-                        shape = CircleShape,
-                        color = palette.glassWhiteSurface,
-                        shadowElevation = 4.dp,
-                        modifier = Modifier
-                            .minimumInteractiveComponentSize()
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .clickable(role = Role.Button, onClick = onResetAll)
-                            .testTag("reset_morphs_button"),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.Refresh,
-                                contentDescription = resetDesc,
-                                tint = palette.inkBlack,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Top-Right Clock inside Orange Sun (glides & morphs into frosted capsule on click)
-            MorphingClockWidget(
-                clockText = uiState.clockText,
-                secondsText = uiState.secondsText,
-                timeMode = uiState.timeMode,
-                isMorphed = uiState.isClockMorphed,
-                isCompactWidth = safeW < 340.dp,
-                onClick = onClockClick,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 24.dp, end = 24.dp),
-            )
-
-            // Left App Dock (ColorOS parallel glide & circular-to-capsule morph on tap)
-            val dockTop = if (isCompactHeight) 64.dp else maxOf(76.dp, safeH * 0.115f)
-            val dockSpacing = if (isCompactHeight) 2.dp else 8.dp
-            val activeIndex = uiState.activeDockApp?.let { uiState.dockApps.indexOf(it) } ?: -1
+            val isCompactWidth = safeW < 340.dp
 
             Column(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 10.dp, top = dockTop, bottom = 16.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(dockSpacing),
-                horizontalAlignment = Alignment.Start,
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                uiState.dockApps.forEachIndexed { index, app ->
-                    val isExpanded = uiState.activeDockApp == app
-                    val isNeighbor = activeIndex >= 0 && abs(index - activeIndex) == 1
-                    DockAppButton(
-                        app = app,
-                        isExpanded = isExpanded,
-                        isNeighborNudged = isNeighbor,
-                        onClick = { onDockAppClick(app) },
+                // --- TOP TIER: Mode Pill + Reset + Clock ---
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.align(Alignment.TopStart),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TimeModePill(
+                            currentMode = uiState.timeMode,
+                            onSelectMode = onTimeModeSelected,
+                        )
+
+                        AnimatedVisibility(
+                            visible = uiState.hasAnyMorph,
+                            enter = fadeIn(tween(200)) + scaleIn(
+                                initialScale = 0.7f,
+                                animationSpec = colorOsSpring(),
+                            ),
+                            exit = fadeOut(tween(160)) + scaleOut(targetScale = 0.75f),
+                        ) {
+                            val resetDesc = stringResource(R.string.reset_morphs_desc)
+                            Surface(
+                                shape = CircleShape,
+                                color = palette.glassWhiteSurface,
+                                shadowElevation = 4.dp,
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .clickable(role = Role.Button, onClick = onResetAll)
+                                    .testTag("reset_morphs_button"),
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Refresh,
+                                        contentDescription = resetDesc,
+                                        tint = palette.inkBlack,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    MorphingClockWidget(
+                        clockText = uiState.clockText,
+                        secondsText = uiState.secondsText,
+                        timeMode = uiState.timeMode,
+                        isMorphed = uiState.isClockMorphed,
+                        isCompactWidth = isCompactWidth,
+                        onClick = onClockClick,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 6.dp, end = 4.dp),
+                    )
+                }
+
+                // --- HORIZONTAL APP DOCK (positioned cleanly above the canvas) ---
+                val activeIndex = uiState.activeDockApp?.let { uiState.dockApps.indexOf(it) } ?: -1
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    uiState.dockApps.forEachIndexed { index, app ->
+                        val isExpanded = uiState.activeDockApp == app
+                        val isNeighbor = activeIndex >= 0 && abs(index - activeIndex) == 1
+                        DockAppButton(
+                            app = app,
+                            isExpanded = isExpanded,
+                            isNeighborNudged = isNeighbor,
+                            onClick = { onDockAppClick(app) },
+                            iconSize = 30.dp,
+                        )
+                    }
+                }
+
+                // --- EXTERNAL CANVAS TOOLBAR (outside & above the canvas) ---
+                ExternalCanvasToolbar(
+                    hasStrokes = uiState.strokes.isNotEmpty(),
+                    selectedColorIndex = uiState.selectedColorIndex,
+                    selectedBrushSizeIndex = uiState.selectedBrushSizeIndex,
+                    selectedCanvasBgIndex = uiState.selectedCanvasBgIndex,
+                    selectedCanvasRatio = uiState.selectedCanvasRatio,
+                    onSelectColor = onSelectBrushColor,
+                    onCycleBrushSize = onCycleBrushSize,
+                    onSelectCanvasBgColor = onSelectCanvasBgColor,
+                    onSelectCanvasRatio = onSelectCanvasRatio,
+                    onUndo = onUndoStroke,
+                    onClear = onClearStrokes,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+
+                // --- CENTER TIER: Pure Freehand Drawing Canvas (no toolbar inside!) ---
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    FreehandCanvasCard(
+                        availableWidth = maxWidth,
+                        availableHeight = maxHeight,
+                        strokes = uiState.strokes,
+                        activeStroke = uiState.activeStroke,
+                        selectedCanvasBgIndex = uiState.selectedCanvasBgIndex,
+                        selectedCanvasRatio = uiState.selectedCanvasRatio,
+                        onStartStroke = onStartStroke,
+                        onAppendStrokePoint = onAppendStrokePoint,
+                        onFinishStroke = onFinishStroke,
+                    )
+                }
+
+                // --- BOTTOM TIER: Search Widget (Bottom-Left) + Date Greeting (Bottom-Right) ---
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    MorphingDateWidget(
+                        dayText = uiState.dayText,
+                        dateText = uiState.dateText,
+                        isMorphed = uiState.isDateMorphed,
+                        isCompactWidth = isCompactWidth,
+                        onClick = onDateClick,
+                        modifier = Modifier.align(Alignment.BottomEnd),
+                    )
+
+                    MorphingSearchWidget(
+                        isExpanded = uiState.isSearchCapsuleExpanded,
+                        query = uiState.searchQuery,
+                        maxAvailableWidth = safeW - 32.dp,
+                        onToggleCapsule = onToggleSearchCapsule,
+                        onQueryChange = onSearchQueryChange,
+                        onSubmitSearch = onSubmitSearch,
+                        onOpenFullSearch = onOpenFullSearch,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .zIndex(if (uiState.isSearchCapsuleExpanded) 2f else 1f),
                     )
                 }
             }
-
-            // Vertical Search Widget -> Morphs into Horizontal ColorOS Glass Search Capsule
-            val searchX = minOf(92.dp, safeW * 0.25f)
-            val searchY = if (isCompactHeight) 128.dp else maxOf(168.dp, safeH * 0.25f)
-            val lineHeight = if (isCompactHeight) 76.dp else 112.dp
-
-            MorphingSearchWidget(
-                isExpanded = uiState.isSearchCapsuleExpanded,
-                query = uiState.searchQuery,
-                baseX = searchX,
-                baseY = searchY,
-                maxAvailableWidth = safeW,
-                lineHeight = lineHeight,
-                onToggleCapsule = onToggleSearchCapsule,
-                onQueryChange = onSearchQueryChange,
-                onSubmitSearch = onSubmitSearch,
-                onOpenFullSearch = onOpenFullSearch,
-                modifier = Modifier.align(Alignment.TopStart),
-            )
-
-            // Bottom-Right Greeting & Date Widget (morphs position & shape into dark glass squircle)
-            MorphingDateWidget(
-                dayText = uiState.dayText,
-                dateText = uiState.dateText,
-                isMorphed = uiState.isDateMorphed,
-                isCompactWidth = safeW < 340.dp,
-                onClick = onDateClick,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 22.dp, bottom = 26.dp),
-            )
 
             // Bottom Toast Pill
             AnimatedVisibility(
@@ -306,7 +363,7 @@ fun TropicalHomeContent(
                 exit = fadeOut(tween(180)) + slideOutVertically(tween(180)) { it / 2 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 14.dp),
             ) {
                 uiState.feedback?.let { feedback ->
                     val msg = when (feedback) {
@@ -366,24 +423,24 @@ private fun MorphingClockWidget(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val offsetX by animateDpAsState(
-        targetValue = if (isMorphed) (-24).dp else 0.dp,
+        targetValue = if (isMorphed) (-12).dp else 0.dp,
         animationSpec = colorOsSpring(),
         label = "clock_offset_x",
     )
     val offsetY by animateDpAsState(
-        targetValue = if (isMorphed) 20.dp else 0.dp,
+        targetValue = if (isMorphed) 6.dp else 0.dp,
         animationSpec = colorOsSpring(),
         label = "clock_offset_y",
     )
     val cornerRadius by animateDpAsState(
-        targetValue = if (isMorphed) 26.dp else 12.dp,
+        targetValue = if (isMorphed) 24.dp else 12.dp,
         animationSpec = colorOsSpring(),
         label = "clock_corner",
     )
     val scale by animateFloatAsState(
         targetValue = when {
             isPressed -> 0.94f
-            isMorphed -> 1.04f
+            isMorphed -> 1.03f
             else -> 1f
         },
         animationSpec = colorOsSpring(),
@@ -402,12 +459,12 @@ private fun MorphingClockWidget(
 
     val shape = RoundedCornerShape(cornerRadius.coerceAtLeast(0.dp))
     val padH by animateDpAsState(
-        targetValue = if (isMorphed) 18.dp else 4.dp,
+        targetValue = if (isMorphed) 16.dp else 4.dp,
         animationSpec = colorOsSpring(),
         label = "clock_pad_h",
     )
     val padV by animateDpAsState(
-        targetValue = if (isMorphed) 10.dp else 0.dp,
+        targetValue = if (isMorphed) 8.dp else 0.dp,
         animationSpec = colorOsSpring(),
         label = "clock_pad_v",
     )
@@ -438,7 +495,8 @@ private fun MorphingClockWidget(
             Text(
                 text = clockText,
                 style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = if (isCompactWidth) 46.sp else 56.sp,
+                    fontSize = if (isCompactWidth) 40.sp else 48.sp,
+                    lineHeight = if (isCompactWidth) 42.sp else 50.sp,
                     shadow = Shadow(
                         color = Color.Black.copy(alpha = 0.08f),
                         offset = Offset(0f, 3f),
@@ -456,10 +514,10 @@ private fun MorphingClockWidget(
                     text = ":$secondsText",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                     ),
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
-                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                    modifier = Modifier.padding(start = 3.dp, bottom = 6.dp),
                 )
             }
         }
@@ -475,8 +533,8 @@ private fun MorphingClockWidget(
                     else R.string.clock_mode_mockup_tag,
                 ),
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 10.sp,
-                    letterSpacing = 2.sp,
+                    fontSize = 9.sp,
+                    letterSpacing = 1.8.sp,
                     fontWeight = FontWeight.Bold,
                 ),
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.92f),
@@ -489,10 +547,7 @@ private fun MorphingClockWidget(
 private fun MorphingSearchWidget(
     isExpanded: Boolean,
     query: String,
-    baseX: Dp,
-    baseY: Dp,
     maxAvailableWidth: Dp,
-    lineHeight: Dp,
     onToggleCapsule: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSubmitSearch: () -> Unit,
@@ -506,21 +561,15 @@ private fun MorphingSearchWidget(
     val searchHereText = stringResource(R.string.search_here)
     val inlineHint = stringResource(R.string.search_inline_hint)
 
-    val expandedWidth = minOf(244.dp, (maxAvailableWidth - baseX - 12.dp).coerceAtLeast(180.dp))
+    val expandedWidth = minOf(280.dp, maxAvailableWidth.coerceAtLeast(200.dp))
 
-    // ColorOS spring morphing of position, dimensions, shape, and rotation
-    val offsetX by animateDpAsState(
-        targetValue = if (isExpanded) (baseX - 12.dp).coerceAtLeast(64.dp) else baseX,
-        animationSpec = colorOsSpring(),
-        label = "search_pos_x",
-    )
     val offsetY by animateDpAsState(
-        targetValue = if (isExpanded) (baseY - 22.dp).coerceAtLeast(88.dp) else baseY,
+        targetValue = if (isExpanded) (-8).dp else 0.dp,
         animationSpec = colorOsSpring(),
         label = "search_pos_y",
     )
     val capsuleWidth by animateDpAsState(
-        targetValue = if (isExpanded) expandedWidth else 48.dp,
+        targetValue = if (isExpanded) expandedWidth else 168.dp,
         animationSpec = colorOsSpring(),
         label = "search_capsule_w",
     )
@@ -535,202 +584,157 @@ private fun MorphingSearchWidget(
         label = "search_capsule_corner",
     )
     val capsuleBg by animateColorAsState(
-        targetValue = if (isExpanded) palette.glassWhiteSurface else palette.searchButtonBlue,
+        targetValue = if (isExpanded) palette.glassWhiteSurface else Color.White.copy(alpha = 0.92f),
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "search_capsule_bg",
     )
     val capsuleBorder by animateColorAsState(
-        targetValue = if (isExpanded) palette.glassWhiteBorder else Color.Transparent,
+        targetValue = if (isExpanded) palette.glassWhiteBorder else Color.White.copy(alpha = 0.6f),
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "search_capsule_border",
     )
 
-    // Vertical line shrinks & fades smoothly as the capsule blooms horizontally
-    val lineAnimHeight by animateDpAsState(
-        targetValue = if (isExpanded) 0.dp else lineHeight,
-        animationSpec = colorOsSpring(),
-        label = "search_line_h",
-    )
-    val labelAlpha by animateFloatAsState(
-        targetValue = if (isExpanded) 0f else 1f,
-        animationSpec = tween(180),
-        label = "search_label_alpha",
-    )
-    val labelRotate by animateFloatAsState(
-        targetValue = if (isExpanded) 0f else -90f,
-        animationSpec = colorOsSpring(),
-        label = "search_label_rotate",
-    )
-    val labelShiftY by animateDpAsState(
-        targetValue = if (isExpanded) (-28).dp else 0.dp,
-        animationSpec = colorOsSpring(),
-        label = "search_label_shift_y",
-    )
-
     val capsuleShape = RoundedCornerShape(capsuleCorner.coerceAtLeast(0.dp))
 
-    Column(
-        modifier = modifier.offset(x = offsetX, y = offsetY),
-        horizontalAlignment = if (isExpanded) Alignment.Start else Alignment.CenterHorizontally,
-    ) {
-        // Morphing Search Circle <-> Horizontal Glass Capsule
-        Box(
-            modifier = Modifier
-                .size(
-                    width = capsuleWidth.coerceAtLeast(0.dp),
-                    height = capsuleHeight.coerceAtLeast(0.dp),
-                )
-                .shadow(
-                    elevation = if (isExpanded) 14.dp else 10.dp,
-                    shape = capsuleShape,
-                    ambientColor = if (isExpanded) Color.Black.copy(alpha = 0.16f) else palette.searchButtonBlue,
-                    spotColor = if (isExpanded) Color.Black.copy(alpha = 0.16f) else palette.searchButtonBlue,
-                )
-                .clip(capsuleShape)
-                .background(capsuleBg)
-                .border(width = if (isExpanded) 1.dp else 0.dp, color = capsuleBorder, shape = capsuleShape),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            if (!isExpanded) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("search_circle_button")
-                        .semantics { contentDescription = openSearchDesc }
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = ripple(bounded = true, color = Color.White),
-                            role = Role.Button,
-                            onClick = onToggleCapsule,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    SearchPersonGlyph(modifier = Modifier.size(22.dp))
-                }
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    // Blue orb button stays anchored on left inside capsule
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(palette.searchButtonBlue)
-                            .clickable(
-                                role = Role.Button,
-                                onClick = onOpenFullSearch,
-                            )
-                            .testTag("search_circle_button"),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        SearchPersonGlyph(modifier = Modifier.size(19.dp))
-                    }
-
-                    Box(modifier = Modifier.weight(1f)) {
-                        if (query.isEmpty()) {
-                            Text(
-                                text = inlineHint,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                color = palette.mutedText.copy(alpha = 0.7f),
-                                maxLines = 1,
-                                softWrap = false,
-                            )
-                        }
-                        BasicTextField(
-                            value = query,
-                            onValueChange = onQueryChange,
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 13.sp,
-                                color = palette.inkBlack,
-                            ),
-                            cursorBrush = SolidColor(palette.searchButtonBlue),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { onSubmitSearch() }),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("inline_search_input"),
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onOpenFullSearch,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .testTag("expand_full_search_button"),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.OpenInFull,
-                            contentDescription = expandFullDesc,
-                            tint = palette.inkBlack,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onToggleCapsule,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .testTag("collapse_search_capsule_button"),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = closeDesc,
-                            tint = palette.inkBlack,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
-            }
-        }
-
-        val safeLineHeight = lineAnimHeight.coerceAtLeast(0.dp)
-        if (safeLineHeight > 1.dp) {
-            val ratio = (safeLineHeight / lineHeight).coerceIn(0f, 1f)
-            Spacer(modifier = Modifier.height((22.dp * ratio).coerceAtLeast(0.dp)))
-            Box(
-                modifier = Modifier
-                    .width(2.dp)
-                    .height(safeLineHeight)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(palette.lineBlack),
+    Box(
+        modifier = modifier
+            .offset(y = offsetY)
+            .size(
+                width = capsuleWidth.coerceAtLeast(48.dp),
+                height = capsuleHeight.coerceAtLeast(48.dp),
             )
-            Spacer(modifier = Modifier.height((18.dp * ratio).coerceAtLeast(0.dp)))
-        }
-
-        // Vertical Rotated "SEARCH HERE." Label (rotates & fades out into capsule when expanded)
-        if (labelAlpha > 0.02f) {
-            Box(
+            .shadow(
+                elevation = if (isExpanded) 14.dp else 8.dp,
+                shape = capsuleShape,
+                ambientColor = if (isExpanded) Color.Black.copy(alpha = 0.16f) else palette.searchButtonBlue,
+                spotColor = if (isExpanded) Color.Black.copy(alpha = 0.16f) else palette.searchButtonBlue,
+            )
+            .clip(capsuleShape)
+            .background(capsuleBg)
+            .border(width = 1.dp, color = capsuleBorder, shape = capsuleShape),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        if (!isExpanded) {
+            Row(
                 modifier = Modifier
-                    .offset(y = labelShiftY)
-                    .alpha(labelAlpha)
-                    .minimumInteractiveComponentSize()
-                    .clip(RoundedCornerShape(8.dp))
-                    .testTag("search_here_label")
+                    .fillMaxSize()
+                    .testTag("search_circle_button")
+                    .semantics { contentDescription = openSearchDesc }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(bounded = true),
                         role = Role.Button,
                         onClick = onToggleCapsule,
                     )
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center,
+                    .padding(start = 4.dp, end = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(palette.searchButtonBlue),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SearchPersonGlyph(modifier = Modifier.size(19.dp))
+                }
+                Box(
+                    modifier = Modifier
+                        .width(12.dp)
+                        .height(2.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(palette.lineBlack),
+                )
                 Text(
                     text = searchHereText,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = 9.sp,
+                        letterSpacing = 1.4.sp,
+                    ),
                     color = palette.inkBlack,
                     maxLines = 1,
                     softWrap = false,
-                    modifier = Modifier
-                        .verticalRotated()
-                        .rotate(labelRotate),
+                    modifier = Modifier.testTag("search_here_label"),
                 )
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(palette.searchButtonBlue)
+                        .clickable(
+                            role = Role.Button,
+                            onClick = onOpenFullSearch,
+                        )
+                        .testTag("search_circle_button"),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SearchPersonGlyph(modifier = Modifier.size(19.dp))
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    if (query.isEmpty()) {
+                        Text(
+                            text = inlineHint,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                            color = palette.mutedText.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
+                    BasicTextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 13.sp,
+                            color = palette.inkBlack,
+                        ),
+                        cursorBrush = SolidColor(palette.searchButtonBlue),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { onSubmitSearch() }),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("inline_search_input"),
+                    )
+                }
+
+                IconButton(
+                    onClick = onOpenFullSearch,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .testTag("expand_full_search_button"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.OpenInFull,
+                        contentDescription = expandFullDesc,
+                        tint = palette.inkBlack,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+
+                IconButton(
+                    onClick = onToggleCapsule,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .testTag("collapse_search_capsule_button"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = closeDesc,
+                        tint = palette.inkBlack,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
     }
@@ -751,34 +755,34 @@ private fun MorphingDateWidget(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val offsetX by animateDpAsState(
-        targetValue = if (isMorphed) (-14).dp else 0.dp,
+        targetValue = if (isMorphed) (-8).dp else 0.dp,
         animationSpec = colorOsSpring(),
         label = "date_offset_x",
     )
     val offsetY by animateDpAsState(
-        targetValue = if (isMorphed) (-18).dp else 0.dp,
+        targetValue = if (isMorphed) (-10).dp else 0.dp,
         animationSpec = colorOsSpring(),
         label = "date_offset_y",
     )
     val cornerRadius by animateDpAsState(
-        targetValue = if (isMorphed) 28.dp else 10.dp,
+        targetValue = if (isMorphed) 24.dp else 10.dp,
         animationSpec = colorOsSpring(),
         label = "date_corner",
     )
     val padH by animateDpAsState(
-        targetValue = if (isMorphed) 20.dp else 4.dp,
+        targetValue = if (isMorphed) 16.dp else 4.dp,
         animationSpec = colorOsSpring(),
         label = "date_pad_h",
     )
     val padV by animateDpAsState(
-        targetValue = if (isMorphed) 14.dp else 4.dp,
+        targetValue = if (isMorphed) 10.dp else 4.dp,
         animationSpec = colorOsSpring(),
         label = "date_pad_v",
     )
     val scale by animateFloatAsState(
         targetValue = when {
             isPressed -> 0.94f
-            isMorphed -> 1.04f
+            isMorphed -> 1.03f
             else -> 1f
         },
         animationSpec = colorOsSpring(),
@@ -795,14 +799,13 @@ private fun MorphingDateWidget(
         label = "date_border",
     )
 
-    // Amber dashes morph from crisp rectangles into longer pill capsules
     val topDashWidth by animateDpAsState(
-        targetValue = if (isMorphed) 42.dp else 26.dp,
+        targetValue = if (isMorphed) 34.dp else 22.dp,
         animationSpec = colorOsSpring(),
         label = "top_dash_w",
     )
     val bottomDashWidth by animateDpAsState(
-        targetValue = if (isMorphed) 36.dp else 22.dp,
+        targetValue = if (isMorphed) 30.dp else 18.dp,
         animationSpec = colorOsSpring(),
         label = "bottom_dash_w",
     )
@@ -812,7 +815,7 @@ private fun MorphingDateWidget(
         label = "dash_corner",
     )
     val dashHeight by animateDpAsState(
-        targetValue = if (isMorphed) 8.dp else 6.dp,
+        targetValue = if (isMorphed) 7.dp else 5.dp,
         animationSpec = colorOsSpring(),
         label = "dash_height",
     )
@@ -845,13 +848,13 @@ private fun MorphingDateWidget(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = stringResource(
                     if (isMorphed) R.string.hello_expanded_label else R.string.hello_label,
                 ),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 12.sp),
                 color = palette.helloWhite,
             )
             Box(
@@ -866,18 +869,19 @@ private fun MorphingDateWidget(
         Text(
             text = dayText,
             style = MaterialTheme.typography.displayMedium.copy(
-                fontSize = if (isCompactWidth) 46.sp else 56.sp,
+                fontSize = if (isCompactWidth) 38.sp else 44.sp,
+                lineHeight = if (isCompactWidth) 40.sp else 46.sp,
             ),
             color = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.testTag("day_text"),
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(2.dp))
 
         Row(
             modifier = Modifier.align(Alignment.End),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
                 modifier = Modifier
@@ -888,7 +892,7 @@ private fun MorphingDateWidget(
             )
             Text(
                 text = dateText,
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
                 color = palette.dateWhite,
                 modifier = Modifier.testTag("date_text"),
             )
@@ -974,22 +978,6 @@ private fun ModePillItem(
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
             ),
             color = textColor,
-        )
-    }
-}
-
-private fun Modifier.verticalRotated(): Modifier = layout { measurable, constraints ->
-    val swapped = constraints.copy(
-        minWidth = constraints.minHeight,
-        maxWidth = constraints.maxHeight,
-        minHeight = constraints.minWidth,
-        maxHeight = constraints.maxWidth,
-    )
-    val placeable = measurable.measure(swapped)
-    layout(placeable.height, placeable.width) {
-        placeable.place(
-            x = -(placeable.width - placeable.height) / 2,
-            y = -(placeable.height - placeable.width) / 2,
         )
     }
 }

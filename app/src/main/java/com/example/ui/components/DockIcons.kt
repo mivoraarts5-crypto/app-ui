@@ -92,15 +92,15 @@ fun DockAppButton(
     val fluidDpSpec = spring<Dp>(dampingRatio = 0.64f, stiffness = Spring.StiffnessMediumLow)
     val fluidFloatSpec = spring<Float>(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow)
 
-    // ColorOS Parallel Motion: active icon glides right & morphs from circle -> frosted glass capsule
-    val offsetX by animateDpAsState(
+    // ColorOS Parallel Motion: active icon lifts upward & morphs from circle -> frosted glass capsule
+    val offsetY by animateDpAsState(
         targetValue = when {
-            isExpanded -> 14.dp
-            isNeighborNudged -> 4.dp
+            isExpanded -> (-6).dp
+            isNeighborNudged -> (-2).dp
             else -> 0.dp
         },
         animationSpec = fluidDpSpec,
-        label = "dock_offset_x",
+        label = "dock_offset_y",
     )
     val cornerRadius by animateDpAsState(
         targetValue = if (isExpanded) 18.dp else 24.dp,
@@ -137,8 +137,7 @@ fun DockAppButton(
 
     Row(
         modifier = modifier
-            .offset(x = offsetX)
-            .minimumInteractiveComponentSize()
+            .offset(y = offsetY)
             .height(containerHeight.coerceAtLeast(0.dp))
             .scale(scale)
             .then(
@@ -164,7 +163,7 @@ fun DockAppButton(
                 role = Role.Button,
                 onClick = onClick,
             )
-            .padding(horizontal = if (isExpanded) 10.dp else 6.dp),
+            .padding(horizontal = if (isExpanded) 10.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
     ) {

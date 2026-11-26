@@ -24,6 +24,13 @@ val GlassDarkSurface = Color(0xB316181D)
 val GlassDarkBorder = Color(0x3DFFFFFF)
 val SunGlassSurface = Color(0x38FFFFFF)
 
+// Canvas Background Surface Palette
+val CanvasPaperWhite = Color(0xECFFFFFF)
+val CanvasWarmCream = Color(0xF5FFF3DB)
+val CanvasSkyMist = Color(0xF5E2F2FF)
+val CanvasMintBreeze = Color(0xF5E6F7EB)
+val CanvasMidnightSlate = Color(0xF2141820)
+
 // App Dock Icon Palette
 val IconMusicRed = Color(0xFFD93B3B)
 val IconBrowserBlue = Color(0xFF4AA8F0)

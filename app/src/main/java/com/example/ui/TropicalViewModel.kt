@@ -1,6 +1,7 @@
 package com.example.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.R
@@ -21,6 +22,17 @@ enum class TimeMode {
     LIVE,
 }
 
+enum class CanvasRatio(
+    @param:StringRes val labelRes: Int,
+    val aspect: Float,
+) {
+    SQUARE(R.string.ratio_1_1, 1f),
+    LANDSCAPE_4_3(R.string.ratio_4_3, 4f / 3f),
+    PORTRAIT_3_4(R.string.ratio_3_4, 3f / 4f),
+    PORTRAIT_9_16(R.string.ratio_9_16, 9f / 16f),
+    WIDE_16_9(R.string.ratio_16_9, 16f / 9f),
+}
+
 enum class DockApp(
     @param:StringRes val labelRes: Int,
     val searchKeywords: String,
@@ -35,6 +47,13 @@ enum class DockApp(
     NOTES(R.string.app_notes, "notes files memo write", "app_icon_notes"),
     PHONE(R.string.app_phone, "phone call dialer contacts", "app_icon_phone"),
 }
+
+data class DrawStroke(
+    val id: Long,
+    val normalizedPoints: List<Offset>,
+    val colorIndex: Int,
+    val strokeWidthDp: Float,
+)
 
 sealed interface FeedbackMessage {
     data class OpeningApp(@param:StringRes val appNameRes: Int) : FeedbackMessage
@@ -59,6 +78,12 @@ data class TropicalUiState(
     val isIslandMorphed: Boolean = false,
     val isPalmMorphed: Boolean = false,
     val isDateMorphed: Boolean = false,
+    val strokes: List<DrawStroke> = emptyList(),
+    val activeStroke: DrawStroke? = null,
+    val selectedColorIndex: Int = 0,
+    val selectedBrushSizeIndex: Int = 1,
+    val selectedCanvasBgIndex: Int = 0,
+    val selectedCanvasRatio: CanvasRatio = CanvasRatio.SQUARE,
 ) {
     val hasAnyMorph: Boolean
         get() = activeDockApp != null ||
@@ -68,7 +93,9 @@ data class TropicalUiState(
             isIslandMorphed ||
             isPalmMorphed ||
             isDateMorphed ||
-            isSearchCapsuleExpanded
+            isSearchCapsuleExpanded ||
+            selectedCanvasBgIndex != 0 ||
+            selectedCanvasRatio != CanvasRatio.SQUARE
 }
 
 class TropicalViewModel : ViewModel() {
@@ -76,6 +103,9 @@ class TropicalViewModel : ViewModel() {
     val uiState: StateFlow<TropicalUiState> = _uiState.asStateFlow()
 
     private var feedbackJob: Job? = null
+    private var nextStrokeId = 1L
+
+    private val brushWidthsDp = listOf(3.5f, 6.5f, 11f)
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.US)
     private val secondsFormat = SimpleDateFormat("ss", Locale.US)
@@ -130,6 +160,78 @@ class TropicalViewModel : ViewModel() {
                 dateText = "$month. $dayNum",
             )
         }
+    }
+
+    fun startStroke(normalizedPoint: Offset) {
+        val state = _uiState.value
+        val widthDp = brushWidthsDp[state.selectedBrushSizeIndex.coerceIn(brushWidthsDp.indices)]
+        val stroke = DrawStroke(
+            id = nextStrokeId++,
+            normalizedPoints = listOf(normalizedPoint),
+            colorIndex = state.selectedColorIndex,
+            strokeWidthDp = widthDp,
+        )
+        _uiState.update { it.copy(activeStroke = stroke) }
+    }
+
+    fun appendStrokePoint(normalizedPoint: Offset) {
+        _uiState.update { state ->
+            val current = state.activeStroke ?: return@update state
+            val last = current.normalizedPoints.lastOrNull()
+            if (last != null && (normalizedPoint - last).getDistanceSquared() < 0.000015f) {
+                return@update state
+            }
+            state.copy(
+                activeStroke = current.copy(
+                    normalizedPoints = current.normalizedPoints + normalizedPoint,
+                ),
+            )
+        }
+    }
+
+    fun finishStroke() {
+        _uiState.update { state ->
+            val finished = state.activeStroke ?: return@update state
+            state.copy(
+                strokes = state.strokes + finished,
+                activeStroke = null,
+            )
+        }
+    }
+
+    fun undoStroke() {
+        _uiState.update { state ->
+            if (state.strokes.isEmpty()) state
+            else state.copy(strokes = state.strokes.dropLast(1))
+        }
+    }
+
+    fun clearStrokes() {
+        _uiState.update { it.copy(strokes = emptyList(), activeStroke = null) }
+    }
+
+    fun selectBrushColor(index: Int) {
+        _uiState.update { it.copy(selectedColorIndex = index) }
+    }
+
+    fun cycleBrushSize() {
+        _uiState.update { state ->
+            state.copy(selectedBrushSizeIndex = (state.selectedBrushSizeIndex + 1) % brushWidthsDp.size)
+        }
+    }
+
+    fun selectCanvasBgColor(index: Int) {
+        _uiState.update { state ->
+            val switchingToDark = index == 4 && state.selectedColorIndex == 0
+            state.copy(
+                selectedCanvasBgIndex = index,
+                selectedColorIndex = if (switchingToDark) 5 else state.selectedColorIndex,
+            )
+        }
+    }
+
+    fun selectCanvasRatio(ratio: CanvasRatio) {
+        _uiState.update { it.copy(selectedCanvasRatio = ratio) }
     }
 
     fun toggleSunMorph() {
@@ -241,6 +343,8 @@ class TropicalViewModel : ViewModel() {
                 isDateMorphed = false,
                 isSearchCapsuleExpanded = false,
                 searchQuery = "",
+                selectedCanvasBgIndex = 0,
+                selectedCanvasRatio = CanvasRatio.SQUARE,
             )
         }
     }

@@ -33,6 +33,11 @@ data class TropicalPalette(
     val glassDarkSurface: Color = GlassDarkSurface,
     val glassDarkBorder: Color = GlassDarkBorder,
     val sunGlassSurface: Color = SunGlassSurface,
+    val canvasPaperWhite: Color = CanvasPaperWhite,
+    val canvasWarmCream: Color = CanvasWarmCream,
+    val canvasSkyMist: Color = CanvasSkyMist,
+    val canvasMintBreeze: Color = CanvasMintBreeze,
+    val canvasMidnightSlate: Color = CanvasMidnightSlate,
 )
 
 val LocalTropicalPalette = staticCompositionLocalOf { TropicalPalette() }
