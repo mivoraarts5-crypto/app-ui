@@ -41,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,6 +71,7 @@ import kotlin.math.roundToInt
 import com.example.R
 import com.example.ui.CanvasRatio
 import com.example.ui.DrawStroke
+import com.example.ui.MusicLayer
 import com.example.ui.theme.IconMusicRed
 import com.example.ui.theme.IconWhatsAppGreen
 import com.example.ui.theme.LocalTropicalPalette
@@ -83,15 +85,15 @@ fun FreehandCanvasCard(
     activeStroke: DrawStroke?,
     selectedCanvasBgIndex: Int,
     selectedCanvasRatio: CanvasRatio,
-    addedMusic: MusicTrack?,
+    musicLayers: List<MusicLayer>,
+    activeLayerId: Long?,
     isMusicPlaying: Boolean,
-    musicStickerNormalizedOffset: Offset,
     onStartStroke: (Offset) -> Unit,
     onAppendStrokePoint: (Offset) -> Unit,
     onFinishStroke: () -> Unit,
-    onToggleMusicPlay: () -> Unit,
-    onRemoveMusic: () -> Unit,
-    onMoveMusicSticker: (Offset) -> Unit,
+    onToggleLayerPlay: (Long) -> Unit,
+    onRemoveLayer: (Long) -> Unit,
+    onMoveLayerSticker: (Long, Offset) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalTropicalPalette.current
@@ -265,33 +267,33 @@ fun FreehandCanvasCard(
         val animWPx = with(density) { animW.coerceAtLeast(140.dp).toPx() }.coerceAtLeast(1f)
         val animHPx = with(density) { animH.coerceAtLeast(140.dp).toPx() }.coerceAtLeast(1f)
 
-        AnimatedVisibility(
-            visible = addedMusic != null,
-            enter = fadeIn() + scaleIn(
-                initialScale = 0.8f,
-                animationSpec = spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow),
-            ),
-            exit = fadeOut() + scaleOut(targetScale = 0.85f),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 12.dp, vertical = 14.dp)
-                .offset {
-                    IntOffset(
-                        x = (musicStickerNormalizedOffset.x * animWPx).roundToInt(),
-                        y = (musicStickerNormalizedOffset.y * animHPx).roundToInt(),
+        musicLayers.forEach { layer ->
+            key(layer.layerId) {
+                val isLayerPlaying = isMusicPlaying && (layer.layerId == activeLayerId)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 12.dp, vertical = 14.dp)
+                        .offset {
+                            IntOffset(
+                                x = (layer.offsetNormalized.x * animWPx).roundToInt(),
+                                y = (layer.offsetNormalized.y * animHPx).roundToInt(),
+                            )
+                        },
+                ) {
+                    CanvasMusicSticker(
+                        track = layer.track,
+                        isPlaying = isLayerPlaying,
+                        onTogglePlay = { onToggleLayerPlay(layer.layerId) },
+                        onRemove = { onRemoveLayer(layer.layerId) },
+                        onDrag = { dragPx ->
+                            onMoveLayerSticker(
+                                layer.layerId,
+                                Offset(dragPx.x / animWPx, dragPx.y / animHPx),
+                            )
+                        },
                     )
-                },
-        ) {
-            addedMusic?.let { track ->
-                CanvasMusicSticker(
-                    track = track,
-                    isPlaying = isMusicPlaying,
-                    onTogglePlay = onToggleMusicPlay,
-                    onRemove = onRemoveMusic,
-                    onDrag = { dragPx ->
-                        onMoveMusicSticker(Offset(dragPx.x / animWPx, dragPx.y / animHPx))
-                    },
-                )
+                }
             }
         }
     }

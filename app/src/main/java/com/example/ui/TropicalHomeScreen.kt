@@ -155,10 +155,11 @@ fun TropicalHomeScreen(
         onSelectMusicTrack = viewModel::addMusicToCanvas,
         onPickMusicFromDevice = { audioPickerLauncher.launch(arrayOf("audio/*")) },
         onCloseMusicPicker = viewModel::closeMusicPicker,
+        onSelectMusicLayer = viewModel::selectMusicLayer,
         onToggleMusicPlay = viewModel::toggleCanvasMusicPlayback,
         onSeekMusicToMs = viewModel::seekMusicToMs,
-        onRemoveMusic = viewModel::removeCanvasMusic,
-        onMoveMusicSticker = viewModel::moveCanvasMusicSticker,
+        onRemoveMusicLayer = viewModel::removeMusicLayer,
+        onMoveMusicLayerSticker = viewModel::moveMusicLayerSticker,
         onUndoStroke = viewModel::undoStroke,
         onClearStrokes = viewModel::clearStrokes,
         modifier = modifier,
@@ -195,10 +196,11 @@ fun TropicalHomeContent(
     onSelectMusicTrack: (MusicTrack) -> Unit,
     onPickMusicFromDevice: () -> Unit,
     onCloseMusicPicker: () -> Unit,
+    onSelectMusicLayer: (Long) -> Unit,
     onToggleMusicPlay: () -> Unit,
     onSeekMusicToMs: (Long) -> Unit,
-    onRemoveMusic: () -> Unit,
-    onMoveMusicSticker: (Offset) -> Unit,
+    onRemoveMusicLayer: (Long) -> Unit,
+    onMoveMusicLayerSticker: (Long, Offset) -> Unit,
     onUndoStroke: () -> Unit,
     onClearStrokes: () -> Unit,
     modifier: Modifier = Modifier,
@@ -424,21 +426,21 @@ fun TropicalHomeContent(
                         activeStroke = uiState.activeStroke,
                         selectedCanvasBgIndex = uiState.selectedCanvasBgIndex,
                         selectedCanvasRatio = uiState.selectedCanvasRatio,
-                        addedMusic = uiState.canvasMusic,
+                        musicLayers = uiState.musicLayers,
+                        activeLayerId = uiState.activeLayerId,
                         isMusicPlaying = uiState.isMusicPlaying,
-                        musicStickerNormalizedOffset = uiState.musicStickerNormalizedOffset,
                         onStartStroke = onStartStroke,
                         onAppendStrokePoint = onAppendStrokePoint,
                         onFinishStroke = onFinishStroke,
-                        onToggleMusicPlay = onToggleMusicPlay,
-                        onRemoveMusic = onRemoveMusic,
-                        onMoveMusicSticker = onMoveMusicSticker,
+                        onToggleLayerPlay = onSelectMusicLayer,
+                        onRemoveLayer = onRemoveMusicLayer,
+                        onMoveLayerSticker = onMoveMusicLayerSticker,
                     )
                 }
 
-                // --- MUSIC LAYER & TIME RULER (shown whenever music is added to canvas) ---
+                // --- MULTI-LAYER MUSIC TIMELINE + SINGLE SHARED TIME RULER ---
                 AnimatedVisibility(
-                    visible = uiState.canvasMusic != null,
+                    visible = uiState.musicLayers.isNotEmpty(),
                     enter = fadeIn(tween(200)) + expandVertically(
                         expandFrom = Alignment.Bottom,
                         animationSpec = colorOsSpring(),
@@ -448,19 +450,19 @@ fun TropicalHomeContent(
                         animationSpec = tween(180),
                     ),
                 ) {
-                    uiState.canvasMusic?.let { track ->
-                        MusicTimelinePanel(
-                            track = track,
-                            positionMs = uiState.musicPositionMs,
-                            isPlaying = uiState.isMusicPlaying,
-                            onTogglePlay = onToggleMusicPlay,
-                            onSeekToMs = onSeekMusicToMs,
-                            onRemove = onRemoveMusic,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 4.dp),
-                        )
-                    }
+                    MusicTimelinePanel(
+                        layers = uiState.musicLayers,
+                        activeLayerId = uiState.activeLayerId,
+                        positionMs = uiState.musicPositionMs,
+                        isPlaying = uiState.isMusicPlaying,
+                        onSelectLayer = onSelectMusicLayer,
+                        onTogglePlay = onToggleMusicPlay,
+                        onSeekToMs = onSeekMusicToMs,
+                        onRemoveLayer = onRemoveMusicLayer,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
                 }
 
                 // --- MUSIC PICKER TRAY (outside & below the canvas when Music icon is clicked) ---
@@ -477,7 +479,7 @@ fun TropicalHomeContent(
                 ) {
                     MusicPickerTray(
                         tracks = uiState.musicTracks,
-                        addedTrackId = uiState.canvasMusic?.id,
+                        addedTrackIds = uiState.musicLayers.map { it.track.id }.toSet(),
                         onSelectTrack = onSelectMusicTrack,
                         onPickFromDevice = onPickMusicFromDevice,
                         onClose = onCloseMusicPicker,

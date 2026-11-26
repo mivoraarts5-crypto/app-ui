@@ -61,6 +61,8 @@
     <string name="device_audio_duration_fallback">Audio</string>
     <string name="device_track_badge">Device</string>
     <string name="music_layer_label">Layer 1 • Audio</string>
+    <string name="music_layers_count_fmt">%1$d layers</string>
+    <string name="layer_short_fmt">L%1$d</string>
     <string name="time_ruler_desc">Music time ruler</string>
     <string name="music_layer_desc">Music timeline layer</string>
 </resources>

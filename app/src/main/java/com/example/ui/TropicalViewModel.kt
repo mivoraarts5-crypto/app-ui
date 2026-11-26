@@ -63,6 +63,12 @@ data class DrawStroke(
     val strokeWidthDp: Float,
 )
 
+data class MusicLayer(
+    val layerId: Long,
+    val track: MusicTrack,
+    val offsetNormalized: Offset = Offset.Zero,
+)
+
 sealed interface FeedbackMessage {
     data class OpeningApp(@param:StringRes val appNameRes: Int) : FeedbackMessage
     data class SearchingQuery(val query: String) : FeedbackMessage
@@ -97,11 +103,14 @@ data class TropicalUiState(
     val isDockVisible: Boolean = false,
     val musicTracks: List<MusicTrack> = DefaultMusicLibrary,
     val isMusicPickerVisible: Boolean = false,
-    val canvasMusic: MusicTrack? = null,
+    val musicLayers: List<MusicLayer> = emptyList(),
+    val activeLayerId: Long? = null,
     val isMusicPlaying: Boolean = false,
     val musicPositionMs: Long = 0L,
-    val musicStickerNormalizedOffset: Offset = Offset.Zero,
 ) {
+    val activeMusicLayer: MusicLayer?
+        get() = musicLayers.firstOrNull { it.layerId == activeLayerId } ?: musicLayers.firstOrNull()
+
     val hasAnyMorph: Boolean
         get() = activeDockApp != null ||
             isSunMorphed ||
@@ -112,7 +121,7 @@ data class TropicalUiState(
             isDateMorphed ||
             isSearchCapsuleExpanded ||
             isMusicPickerVisible ||
-            canvasMusic != null ||
+            musicLayers.isNotEmpty() ||
             selectedCanvasBgIndex != 0 ||
             selectedCanvasRatio != CanvasRatio.SQUARE
 }
@@ -127,6 +136,7 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
     private var playWallStartMs: Long = 0L
     private var playOffsetStartMs: Long = 0L
     private var nextStrokeId = 1L
+    private var nextLayerId = 1L
 
     private val brushWidthsDp = listOf(3.5f, 6.5f, 11f)
 
@@ -290,8 +300,17 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
             }
             if (extracted.isEmpty()) return@launch
 
-            val firstTrack = extracted.first()
-            ambientMusicPlayer.play(appContext, firstTrack, 0L)
+            val existingCount = _uiState.value.musicLayers.size
+            val newLayers = extracted.mapIndexed { idx, track ->
+                val slot = (existingCount + idx) % 4
+                MusicLayer(
+                    layerId = nextLayerId++,
+                    track = track,
+                    offsetNormalized = Offset(0f, (-0.15f * slot).coerceIn(-0.48f, 0f)),
+                )
+            }
+            val activeLayer = newLayers.first()
+            ambientMusicPlayer.play(appContext, activeLayer.track, 0L)
             startMusicProgressTicker(startOffsetMs = 0L)
 
             _uiState.update { state ->
@@ -299,37 +318,64 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
                 val remaining = state.musicTracks.filterNot { it.contentUriString in newUris }
                 state.copy(
                     musicTracks = extracted + remaining,
-                    canvasMusic = firstTrack,
+                    musicLayers = state.musicLayers + newLayers,
+                    activeLayerId = activeLayer.layerId,
                     isMusicPlaying = true,
                     musicPositionMs = 0L,
-                    musicStickerNormalizedOffset = Offset.Zero,
                 )
             }
-            showFeedback(FeedbackMessage.AddedMusicToCanvas(firstTrack.title))
+            showFeedback(FeedbackMessage.AddedMusicToCanvas(activeLayer.track.title))
         }
     }
 
     fun addMusicToCanvas(track: MusicTrack) {
+        val currentLayers = _uiState.value.musicLayers
+        val slot = currentLayers.size % 4
+        val newLayer = MusicLayer(
+            layerId = nextLayerId++,
+            track = track,
+            offsetNormalized = Offset(0f, (-0.15f * slot).coerceIn(-0.48f, 0f)),
+        )
         ambientMusicPlayer.play(getApplication(), track, 0L)
         startMusicProgressTicker(startOffsetMs = 0L)
         _uiState.update {
             it.copy(
-                canvasMusic = track,
+                musicLayers = it.musicLayers + newLayer,
+                activeLayerId = newLayer.layerId,
                 isMusicPlaying = true,
                 musicPositionMs = 0L,
-                musicStickerNormalizedOffset = Offset.Zero,
             )
         }
         showFeedback(FeedbackMessage.AddedMusicToCanvas(track.title))
     }
 
+    fun selectMusicLayer(layerId: Long) {
+        val state = _uiState.value
+        val targetLayer = state.musicLayers.firstOrNull { it.layerId == layerId } ?: return
+        if (state.activeLayerId == layerId) {
+            toggleCanvasMusicPlayback()
+            return
+        }
+        val startMs = state.musicPositionMs.coerceIn(0L, targetLayer.track.durationMs.coerceAtLeast(1_000L))
+        ambientMusicPlayer.play(getApplication(), targetLayer.track, startMs)
+        startMusicProgressTicker(startOffsetMs = startMs)
+        _uiState.update {
+            it.copy(
+                activeLayerId = layerId,
+                isMusicPlaying = true,
+                musicPositionMs = startMs,
+            )
+        }
+    }
+
     fun toggleCanvasMusicPlayback() {
         val state = _uiState.value
-        val track = state.canvasMusic ?: return
+        val activeLayer = state.activeMusicLayer ?: return
         val nextPlaying = !state.isMusicPlaying
         if (nextPlaying) {
-            ambientMusicPlayer.play(getApplication(), track, state.musicPositionMs)
-            startMusicProgressTicker(startOffsetMs = state.musicPositionMs)
+            val startMs = state.musicPositionMs.coerceIn(0L, activeLayer.track.durationMs.coerceAtLeast(1_000L))
+            ambientMusicPlayer.play(getApplication(), activeLayer.track, startMs)
+            startMusicProgressTicker(startOffsetMs = startMs)
         } else {
             musicProgressJob?.cancel()
             musicProgressJob = null
@@ -339,24 +385,46 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun seekMusicToMs(positionMs: Long) {
-        val track = _uiState.value.canvasMusic ?: return
-        val clamped = positionMs.coerceIn(0L, track.durationMs.coerceAtLeast(1_000L))
-        ambientMusicPlayer.seekTo(clamped)
+        val state = _uiState.value
+        if (state.musicLayers.isEmpty()) return
+        val totalTimelineMs = state.musicLayers.maxOf { it.track.durationMs }.coerceAtLeast(1_000L)
+        val clampedTimeline = positionMs.coerceIn(0L, totalTimelineMs)
+        val activeTrackDur = state.activeMusicLayer?.track?.durationMs?.coerceAtLeast(1_000L) ?: totalTimelineMs
+        ambientMusicPlayer.seekTo(clampedTimeline.coerceIn(0L, activeTrackDur))
         playWallStartMs = System.currentTimeMillis()
-        playOffsetStartMs = clamped
-        _uiState.update { it.copy(musicPositionMs = clamped) }
+        playOffsetStartMs = clampedTimeline
+        _uiState.update { it.copy(musicPositionMs = clampedTimeline) }
     }
 
-    fun removeCanvasMusic() {
-        musicProgressJob?.cancel()
-        musicProgressJob = null
-        ambientMusicPlayer.stop()
+    fun removeMusicLayer(layerId: Long) {
+        val state = _uiState.value
+        val updatedLayers = state.musicLayers.filterNot { it.layerId == layerId }
+        if (updatedLayers.isEmpty()) {
+            musicProgressJob?.cancel()
+            musicProgressJob = null
+            ambientMusicPlayer.stop()
+            _uiState.update {
+                it.copy(
+                    musicLayers = emptyList(),
+                    activeLayerId = null,
+                    isMusicPlaying = false,
+                    musicPositionMs = 0L,
+                )
+            }
+            return
+        }
+
+        val wasActiveRemoved = state.activeLayerId == layerId
+        val nextActive = if (wasActiveRemoved) updatedLayers.last() else state.activeMusicLayer
+        if (wasActiveRemoved && state.isMusicPlaying && nextActive != null) {
+            val startMs = state.musicPositionMs.coerceIn(0L, nextActive.track.durationMs.coerceAtLeast(1_000L))
+            ambientMusicPlayer.play(getApplication(), nextActive.track, startMs)
+            startMusicProgressTicker(startOffsetMs = startMs)
+        }
         _uiState.update {
             it.copy(
-                canvasMusic = null,
-                isMusicPlaying = false,
-                musicPositionMs = 0L,
-                musicStickerNormalizedOffset = Offset.Zero,
+                musicLayers = updatedLayers,
+                activeLayerId = nextActive?.layerId,
             )
         }
     }
@@ -369,9 +437,9 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
             while (isActive) {
                 delay(160L)
                 val state = _uiState.value
-                val track = state.canvasMusic ?: break
+                val activeLayer = state.activeMusicLayer ?: break
                 if (!state.isMusicPlaying) break
-                val dur = track.durationMs.coerceAtLeast(1_000L)
+                val dur = activeLayer.track.durationMs.coerceAtLeast(1_000L)
                 val playerPos = ambientMusicPlayer.getCurrentPositionMs()
                 val elapsedWall = (System.currentTimeMillis() - playWallStartMs).coerceAtLeast(0L)
                 val nextPos = if (playerPos > 0L) {
@@ -384,14 +452,21 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun moveCanvasMusicSticker(deltaNormalized: Offset) {
+    fun moveMusicLayerSticker(layerId: Long, deltaNormalized: Offset) {
         _uiState.update { state ->
-            val current = state.musicStickerNormalizedOffset
-            val next = Offset(
-                x = (current.x + deltaNormalized.x).coerceIn(-0.22f, 0.22f),
-                y = (current.y + deltaNormalized.y).coerceIn(-0.68f, 0.04f),
-            )
-            state.copy(musicStickerNormalizedOffset = next)
+            val updated = state.musicLayers.map { layer ->
+                if (layer.layerId != layerId) {
+                    layer
+                } else {
+                    val current = layer.offsetNormalized
+                    val next = Offset(
+                        x = (current.x + deltaNormalized.x).coerceIn(-0.22f, 0.22f),
+                        y = (current.y + deltaNormalized.y).coerceIn(-0.68f, 0.04f),
+                    )
+                    layer.copy(offsetNormalized = next)
+                }
+            }
+            state.copy(musicLayers = updated)
         }
     }
 
@@ -524,10 +599,10 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
                 isDateMorphed = false,
                 isSearchCapsuleExpanded = false,
                 isMusicPickerVisible = false,
-                canvasMusic = null,
+                musicLayers = emptyList(),
+                activeLayerId = null,
                 isMusicPlaying = false,
                 musicPositionMs = 0L,
-                musicStickerNormalizedOffset = Offset.Zero,
                 searchQuery = "",
                 selectedCanvasBgIndex = 0,
                 selectedCanvasRatio = CanvasRatio.SQUARE,

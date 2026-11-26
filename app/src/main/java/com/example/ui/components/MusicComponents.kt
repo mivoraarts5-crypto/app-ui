@@ -129,7 +129,7 @@ private fun MusicAccent.resolveColor(palette: TropicalPalette): Color = when (th
 @Composable
 fun MusicPickerTray(
     tracks: List<MusicTrack>,
-    addedTrackId: String?,
+    addedTrackIds: Set<String>,
     onSelectTrack: (MusicTrack) -> Unit,
     onPickFromDevice: () -> Unit,
     onClose: () -> Unit,
@@ -253,11 +253,11 @@ fun MusicPickerTray(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = if (addedTrackId != null) 118.dp else 160.dp),
+                    .heightIn(max = if (addedTrackIds.isNotEmpty()) 112.dp else 160.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(tracks, key = { it.id }) { track ->
-                    val isAdded = track.id == addedTrackId
+                    val isAdded = track.id in addedTrackIds
                     val accentColor = track.accent.resolveColor(palette)
                     val rowBg by animateColorAsState(
                         targetValue = if (isAdded) {
