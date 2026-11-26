@@ -22,12 +22,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -52,6 +55,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -59,8 +63,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import com.example.R
 import com.example.ui.CanvasRatio
 import com.example.ui.DrawStroke
@@ -77,9 +83,15 @@ fun FreehandCanvasCard(
     activeStroke: DrawStroke?,
     selectedCanvasBgIndex: Int,
     selectedCanvasRatio: CanvasRatio,
+    addedMusic: MusicTrack?,
+    isMusicPlaying: Boolean,
+    musicStickerNormalizedOffset: Offset,
     onStartStroke: (Offset) -> Unit,
     onAppendStrokePoint: (Offset) -> Unit,
     onFinishStroke: () -> Unit,
+    onToggleMusicPlay: () -> Unit,
+    onRemoveMusic: () -> Unit,
+    onMoveMusicSticker: (Offset) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalTropicalPalette.current
@@ -247,6 +259,40 @@ fun FreehandCanvasCard(
                     palette.mutedText.copy(alpha = 0.45f)
                 },
             )
+        }
+
+        val density = LocalDensity.current
+        val animWPx = with(density) { animW.coerceAtLeast(140.dp).toPx() }.coerceAtLeast(1f)
+        val animHPx = with(density) { animH.coerceAtLeast(140.dp).toPx() }.coerceAtLeast(1f)
+
+        AnimatedVisibility(
+            visible = addedMusic != null,
+            enter = fadeIn() + scaleIn(
+                initialScale = 0.8f,
+                animationSpec = spring(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow),
+            ),
+            exit = fadeOut() + scaleOut(targetScale = 0.85f),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 12.dp, vertical = 14.dp)
+                .offset {
+                    IntOffset(
+                        x = (musicStickerNormalizedOffset.x * animWPx).roundToInt(),
+                        y = (musicStickerNormalizedOffset.y * animHPx).roundToInt(),
+                    )
+                },
+        ) {
+            addedMusic?.let { track ->
+                CanvasMusicSticker(
+                    track = track,
+                    isPlaying = isMusicPlaying,
+                    onTogglePlay = onToggleMusicPlay,
+                    onRemove = onRemoveMusic,
+                    onDrag = { dragPx ->
+                        onMoveMusicSticker(Offset(dragPx.x / animWPx, dragPx.y / animHPx))
+                    },
+                )
+            }
         }
     }
 }

@@ -46,4 +46,21 @@
     <string name="app_twitter">Twitter</string>
     <string name="app_notes">Notes</string>
     <string name="app_phone">Phone</string>
+    <string name="music_library_title">Music Library</string>
+    <string name="music_tracks_count_fmt">%1$d tracks</string>
+    <string name="close_music_picker_desc">Close music library</string>
+    <string name="add_music_label">Add</string>
+    <string name="added_music_label">Added</string>
+    <string name="play_music_desc">Play music</string>
+    <string name="pause_music_desc">Pause music</string>
+    <string name="remove_music_desc">Remove music from canvas</string>
+    <string name="added_music_to_canvas_fmt">Added \"%1$s\" to canvas</string>
+    <string name="pick_from_device">Device</string>
+    <string name="pick_from_device_desc">Pick music from device</string>
+    <string name="device_audio_artist_fallback">Device Audio</string>
+    <string name="device_audio_duration_fallback">Audio</string>
+    <string name="device_track_badge">Device</string>
+    <string name="music_layer_label">Layer 1 • Audio</string>
+    <string name="time_ruler_desc">Music time ruler</string>
+    <string name="music_layer_desc">Music timeline layer</string>
 </resources>

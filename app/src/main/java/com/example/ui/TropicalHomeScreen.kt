@@ -1,6 +1,9 @@
 package com.example.ui
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -95,6 +98,9 @@ import com.example.ui.components.DockAppButton
 import com.example.ui.components.DockAppGlyph
 import com.example.ui.components.ExternalCanvasToolbar
 import com.example.ui.components.FreehandCanvasCard
+import com.example.ui.components.MusicPickerTray
+import com.example.ui.components.MusicTimelinePanel
+import com.example.ui.components.MusicTrack
 import com.example.ui.components.SearchPersonGlyph
 import com.example.ui.components.TropicalBackground
 import com.example.ui.theme.LocalTropicalPalette
@@ -111,6 +117,14 @@ fun TropicalHomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val audioPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.addDeviceAudioUris(uris)
+        }
+    }
 
     TropicalHomeContent(
         uiState = uiState,
@@ -138,6 +152,13 @@ fun TropicalHomeScreen(
         onSelectCanvasRatio = viewModel::selectCanvasRatio,
         onToggleCanvasToolbar = viewModel::toggleCanvasToolbar,
         onToggleDockVisibility = viewModel::toggleDockVisibility,
+        onSelectMusicTrack = viewModel::addMusicToCanvas,
+        onPickMusicFromDevice = { audioPickerLauncher.launch(arrayOf("audio/*")) },
+        onCloseMusicPicker = viewModel::closeMusicPicker,
+        onToggleMusicPlay = viewModel::toggleCanvasMusicPlayback,
+        onSeekMusicToMs = viewModel::seekMusicToMs,
+        onRemoveMusic = viewModel::removeCanvasMusic,
+        onMoveMusicSticker = viewModel::moveCanvasMusicSticker,
         onUndoStroke = viewModel::undoStroke,
         onClearStrokes = viewModel::clearStrokes,
         modifier = modifier,
@@ -171,6 +192,13 @@ fun TropicalHomeContent(
     onSelectCanvasRatio: (CanvasRatio) -> Unit,
     onToggleCanvasToolbar: () -> Unit,
     onToggleDockVisibility: () -> Unit,
+    onSelectMusicTrack: (MusicTrack) -> Unit,
+    onPickMusicFromDevice: () -> Unit,
+    onCloseMusicPicker: () -> Unit,
+    onToggleMusicPlay: () -> Unit,
+    onSeekMusicToMs: (Long) -> Unit,
+    onRemoveMusic: () -> Unit,
+    onMoveMusicSticker: (Offset) -> Unit,
     onUndoStroke: () -> Unit,
     onClearStrokes: () -> Unit,
     modifier: Modifier = Modifier,
@@ -396,9 +424,66 @@ fun TropicalHomeContent(
                         activeStroke = uiState.activeStroke,
                         selectedCanvasBgIndex = uiState.selectedCanvasBgIndex,
                         selectedCanvasRatio = uiState.selectedCanvasRatio,
+                        addedMusic = uiState.canvasMusic,
+                        isMusicPlaying = uiState.isMusicPlaying,
+                        musicStickerNormalizedOffset = uiState.musicStickerNormalizedOffset,
                         onStartStroke = onStartStroke,
                         onAppendStrokePoint = onAppendStrokePoint,
                         onFinishStroke = onFinishStroke,
+                        onToggleMusicPlay = onToggleMusicPlay,
+                        onRemoveMusic = onRemoveMusic,
+                        onMoveMusicSticker = onMoveMusicSticker,
+                    )
+                }
+
+                // --- MUSIC LAYER & TIME RULER (shown whenever music is added to canvas) ---
+                AnimatedVisibility(
+                    visible = uiState.canvasMusic != null,
+                    enter = fadeIn(tween(200)) + expandVertically(
+                        expandFrom = Alignment.Bottom,
+                        animationSpec = colorOsSpring(),
+                    ),
+                    exit = fadeOut(tween(150)) + shrinkVertically(
+                        shrinkTowards = Alignment.Bottom,
+                        animationSpec = tween(180),
+                    ),
+                ) {
+                    uiState.canvasMusic?.let { track ->
+                        MusicTimelinePanel(
+                            track = track,
+                            positionMs = uiState.musicPositionMs,
+                            isPlaying = uiState.isMusicPlaying,
+                            onTogglePlay = onToggleMusicPlay,
+                            onSeekToMs = onSeekMusicToMs,
+                            onRemove = onRemoveMusic,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+
+                // --- MUSIC PICKER TRAY (outside & below the canvas when Music icon is clicked) ---
+                AnimatedVisibility(
+                    visible = uiState.isMusicPickerVisible,
+                    enter = fadeIn(tween(200)) + expandVertically(
+                        expandFrom = Alignment.Bottom,
+                        animationSpec = colorOsSpring(),
+                    ),
+                    exit = fadeOut(tween(150)) + shrinkVertically(
+                        shrinkTowards = Alignment.Bottom,
+                        animationSpec = tween(180),
+                    ),
+                ) {
+                    MusicPickerTray(
+                        tracks = uiState.musicTracks,
+                        addedTrackId = uiState.canvasMusic?.id,
+                        onSelectTrack = onSelectMusicTrack,
+                        onPickFromDevice = onPickMusicFromDevice,
+                        onClose = onCloseMusicPicker,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
                     )
                 }
 
@@ -477,6 +562,8 @@ fun TropicalHomeContent(
                             stringResource(R.string.opening_app_fmt, stringResource(feedback.appNameRes))
                         is FeedbackMessage.SearchingQuery ->
                             stringResource(R.string.searching_for_fmt, feedback.query)
+                        is FeedbackMessage.AddedMusicToCanvas ->
+                            stringResource(R.string.added_music_to_canvas_fmt, feedback.trackTitle)
                     }
                     Surface(
                         color = palette.toastBackground,

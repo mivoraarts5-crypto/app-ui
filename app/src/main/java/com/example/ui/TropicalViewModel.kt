@@ -1,10 +1,17 @@
 package com.example.ui
 
+import android.app.Application
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.ui.geometry.Offset
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.R
+import com.example.audio.AmbientMusicPlayer
+import com.example.audio.extractDeviceMusicTrack
+import com.example.ui.components.DefaultMusicLibrary
+import com.example.ui.components.MusicTrack
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,6 +66,7 @@ data class DrawStroke(
 sealed interface FeedbackMessage {
     data class OpeningApp(@param:StringRes val appNameRes: Int) : FeedbackMessage
     data class SearchingQuery(val query: String) : FeedbackMessage
+    data class AddedMusicToCanvas(val trackTitle: String) : FeedbackMessage
 }
 
 data class TropicalUiState(
@@ -86,6 +95,12 @@ data class TropicalUiState(
     val selectedCanvasRatio: CanvasRatio = CanvasRatio.SQUARE,
     val isCanvasToolbarVisible: Boolean = false,
     val isDockVisible: Boolean = false,
+    val musicTracks: List<MusicTrack> = DefaultMusicLibrary,
+    val isMusicPickerVisible: Boolean = false,
+    val canvasMusic: MusicTrack? = null,
+    val isMusicPlaying: Boolean = false,
+    val musicPositionMs: Long = 0L,
+    val musicStickerNormalizedOffset: Offset = Offset.Zero,
 ) {
     val hasAnyMorph: Boolean
         get() = activeDockApp != null ||
@@ -96,15 +111,21 @@ data class TropicalUiState(
             isPalmMorphed ||
             isDateMorphed ||
             isSearchCapsuleExpanded ||
+            isMusicPickerVisible ||
+            canvasMusic != null ||
             selectedCanvasBgIndex != 0 ||
             selectedCanvasRatio != CanvasRatio.SQUARE
 }
 
-class TropicalViewModel : ViewModel() {
+class TropicalViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(TropicalUiState())
     val uiState: StateFlow<TropicalUiState> = _uiState.asStateFlow()
 
+    private val ambientMusicPlayer = AmbientMusicPlayer()
     private var feedbackJob: Job? = null
+    private var musicProgressJob: Job? = null
+    private var playWallStartMs: Long = 0L
+    private var playOffsetStartMs: Long = 0L
     private var nextStrokeId = 1L
 
     private val brushWidthsDp = listOf(3.5f, 6.5f, 11f)
@@ -244,6 +265,136 @@ class TropicalViewModel : ViewModel() {
         _uiState.update { it.copy(isDockVisible = !it.isDockVisible) }
     }
 
+    fun closeMusicPicker() {
+        _uiState.update {
+            it.copy(
+                isMusicPickerVisible = false,
+                activeDockApp = if (it.activeDockApp == DockApp.MUSIC) null else it.activeDockApp,
+            )
+        }
+    }
+
+    fun addDeviceAudioUris(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val appContext = getApplication<Application>()
+        viewModelScope.launch {
+            val extracted = withContext(Dispatchers.IO) {
+                val existingSize = _uiState.value.musicTracks.size
+                uris.mapIndexed { idx, uri ->
+                    extractDeviceMusicTrack(
+                        context = appContext,
+                        uri = uri,
+                        accentSeed = existingSize + idx,
+                    )
+                }
+            }
+            if (extracted.isEmpty()) return@launch
+
+            val firstTrack = extracted.first()
+            ambientMusicPlayer.play(appContext, firstTrack, 0L)
+            startMusicProgressTicker(startOffsetMs = 0L)
+
+            _uiState.update { state ->
+                val newUris = extracted.mapNotNull { it.contentUriString }.toSet()
+                val remaining = state.musicTracks.filterNot { it.contentUriString in newUris }
+                state.copy(
+                    musicTracks = extracted + remaining,
+                    canvasMusic = firstTrack,
+                    isMusicPlaying = true,
+                    musicPositionMs = 0L,
+                    musicStickerNormalizedOffset = Offset.Zero,
+                )
+            }
+            showFeedback(FeedbackMessage.AddedMusicToCanvas(firstTrack.title))
+        }
+    }
+
+    fun addMusicToCanvas(track: MusicTrack) {
+        ambientMusicPlayer.play(getApplication(), track, 0L)
+        startMusicProgressTicker(startOffsetMs = 0L)
+        _uiState.update {
+            it.copy(
+                canvasMusic = track,
+                isMusicPlaying = true,
+                musicPositionMs = 0L,
+                musicStickerNormalizedOffset = Offset.Zero,
+            )
+        }
+        showFeedback(FeedbackMessage.AddedMusicToCanvas(track.title))
+    }
+
+    fun toggleCanvasMusicPlayback() {
+        val state = _uiState.value
+        val track = state.canvasMusic ?: return
+        val nextPlaying = !state.isMusicPlaying
+        if (nextPlaying) {
+            ambientMusicPlayer.play(getApplication(), track, state.musicPositionMs)
+            startMusicProgressTicker(startOffsetMs = state.musicPositionMs)
+        } else {
+            musicProgressJob?.cancel()
+            musicProgressJob = null
+            ambientMusicPlayer.stop()
+        }
+        _uiState.update { it.copy(isMusicPlaying = nextPlaying) }
+    }
+
+    fun seekMusicToMs(positionMs: Long) {
+        val track = _uiState.value.canvasMusic ?: return
+        val clamped = positionMs.coerceIn(0L, track.durationMs.coerceAtLeast(1_000L))
+        ambientMusicPlayer.seekTo(clamped)
+        playWallStartMs = System.currentTimeMillis()
+        playOffsetStartMs = clamped
+        _uiState.update { it.copy(musicPositionMs = clamped) }
+    }
+
+    fun removeCanvasMusic() {
+        musicProgressJob?.cancel()
+        musicProgressJob = null
+        ambientMusicPlayer.stop()
+        _uiState.update {
+            it.copy(
+                canvasMusic = null,
+                isMusicPlaying = false,
+                musicPositionMs = 0L,
+                musicStickerNormalizedOffset = Offset.Zero,
+            )
+        }
+    }
+
+    private fun startMusicProgressTicker(startOffsetMs: Long) {
+        musicProgressJob?.cancel()
+        playWallStartMs = System.currentTimeMillis()
+        playOffsetStartMs = startOffsetMs
+        musicProgressJob = viewModelScope.launch {
+            while (isActive) {
+                delay(160L)
+                val state = _uiState.value
+                val track = state.canvasMusic ?: break
+                if (!state.isMusicPlaying) break
+                val dur = track.durationMs.coerceAtLeast(1_000L)
+                val playerPos = ambientMusicPlayer.getCurrentPositionMs()
+                val elapsedWall = (System.currentTimeMillis() - playWallStartMs).coerceAtLeast(0L)
+                val nextPos = if (playerPos > 0L) {
+                    playerPos.coerceIn(0L, dur)
+                } else {
+                    (playOffsetStartMs + elapsedWall) % dur
+                }
+                _uiState.update { it.copy(musicPositionMs = nextPos) }
+            }
+        }
+    }
+
+    fun moveCanvasMusicSticker(deltaNormalized: Offset) {
+        _uiState.update { state ->
+            val current = state.musicStickerNormalizedOffset
+            val next = Offset(
+                x = (current.x + deltaNormalized.x).coerceIn(-0.22f, 0.22f),
+                y = (current.y + deltaNormalized.y).coerceIn(-0.68f, 0.04f),
+            )
+            state.copy(musicStickerNormalizedOffset = next)
+        }
+    }
+
     fun toggleSunMorph() {
         _uiState.update { it.copy(isSunMorphed = !it.isSunMorphed) }
     }
@@ -316,10 +467,24 @@ class TropicalViewModel : ViewModel() {
     }
 
     fun onDockAppClicked(app: DockApp) {
+        if (app == DockApp.MUSIC) {
+            val opening = !(_uiState.value.activeDockApp == DockApp.MUSIC && _uiState.value.isMusicPickerVisible)
+            _uiState.update {
+                it.copy(
+                    activeDockApp = if (opening) DockApp.MUSIC else null,
+                    isMusicPickerVisible = opening,
+                    isSearchOpen = false,
+                    searchQuery = "",
+                )
+            }
+            return
+        }
+
         val togglingSame = _uiState.value.activeDockApp == app
         _uiState.update {
             it.copy(
                 activeDockApp = if (togglingSame) null else app,
+                isMusicPickerVisible = false,
                 isSearchOpen = false,
                 searchQuery = "",
             )
@@ -333,15 +498,21 @@ class TropicalViewModel : ViewModel() {
         _uiState.update {
             it.copy(
                 activeDockApp = app,
+                isMusicPickerVisible = app == DockApp.MUSIC,
                 isSearchOpen = false,
                 isSearchCapsuleExpanded = false,
                 searchQuery = "",
             )
         }
-        showFeedback(FeedbackMessage.OpeningApp(app.labelRes))
+        if (app != DockApp.MUSIC) {
+            showFeedback(FeedbackMessage.OpeningApp(app.labelRes))
+        }
     }
 
     fun resetAllMorphs() {
+        musicProgressJob?.cancel()
+        musicProgressJob = null
+        ambientMusicPlayer.stop()
         _uiState.update {
             it.copy(
                 activeDockApp = null,
@@ -352,11 +523,22 @@ class TropicalViewModel : ViewModel() {
                 isPalmMorphed = false,
                 isDateMorphed = false,
                 isSearchCapsuleExpanded = false,
+                isMusicPickerVisible = false,
+                canvasMusic = null,
+                isMusicPlaying = false,
+                musicPositionMs = 0L,
+                musicStickerNormalizedOffset = Offset.Zero,
                 searchQuery = "",
                 selectedCanvasBgIndex = 0,
                 selectedCanvasRatio = CanvasRatio.SQUARE,
             )
         }
+    }
+
+    override fun onCleared() {
+        musicProgressJob?.cancel()
+        ambientMusicPlayer.release()
+        super.onCleared()
     }
 
     private fun showFeedback(message: FeedbackMessage) {
