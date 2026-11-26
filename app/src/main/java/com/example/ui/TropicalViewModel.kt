@@ -84,6 +84,8 @@ data class TropicalUiState(
     val selectedBrushSizeIndex: Int = 1,
     val selectedCanvasBgIndex: Int = 0,
     val selectedCanvasRatio: CanvasRatio = CanvasRatio.SQUARE,
+    val isCanvasToolbarVisible: Boolean = false,
+    val isDockVisible: Boolean = false,
 ) {
     val hasAnyMorph: Boolean
         get() = activeDockApp != null ||
@@ -232,6 +234,14 @@ class TropicalViewModel : ViewModel() {
 
     fun selectCanvasRatio(ratio: CanvasRatio) {
         _uiState.update { it.copy(selectedCanvasRatio = ratio) }
+    }
+
+    fun toggleCanvasToolbar() {
+        _uiState.update { it.copy(isCanvasToolbarVisible = !it.isCanvasToolbarVisible) }
+    }
+
+    fun toggleDockVisibility() {
+        _uiState.update { it.copy(isDockVisible = !it.isDockVisible) }
     }
 
     fun toggleSunMorph() {

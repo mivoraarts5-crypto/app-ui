@@ -14,6 +14,8 @@
     <string name="open_search_desc">Open search</string>
     <string name="expand_full_search_desc">Expand full search</string>
     <string name="toggle_time_mode_desc">Toggle time display mode</string>
+    <string name="toggle_app_dock_desc">Toggle app icons</string>
+    <string name="toggle_canvas_toolbar_desc">Toggle canvas settings toolbar</string>
     <string name="reset_morphs_desc">Reset all morphed objects</string>
     <string name="sun_area_desc">Tropical sun</string>
     <string name="palm_area_desc">Palm trees</string>

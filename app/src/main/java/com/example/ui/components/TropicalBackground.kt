@@ -219,6 +219,8 @@ fun TropicalBackground(
             fun px(x: Float): Float = baseX + (x - 284f) * palmScale
             fun py(y: Float): Float = baseY + (y - 458f) * palmScale
 
+            val palmColor = if (isPalmMorphed) palette.islandCharcoal else palette.palmSilhouette
+
             // Grass tufts at base
             val grassPath = Path().apply {
                 moveTo(px(272f), py(462f))
@@ -232,7 +234,7 @@ fun TropicalBackground(
                 lineTo(px(296f), py(460f))
                 close()
             }
-            drawPath(path = grassPath, color = islandColor)
+            drawPath(path = grassPath, color = palmColor)
 
             // Tall Left Palm Trunk (curves & shifts gracefully)
             val tallTipX = 247f + leanX
@@ -250,7 +252,7 @@ fun TropicalBackground(
                 )
                 close()
             }
-            drawPath(path = tallTrunk, color = islandColor)
+            drawPath(path = tallTrunk, color = palmColor)
 
             val frondBloom = 1f + 0.28f * palmMorph
             fun drawTallFrond(
@@ -275,7 +277,7 @@ fun TropicalBackground(
                     )
                     close()
                 }
-                drawPath(path = p, color = islandColor)
+                drawPath(path = p, color = palmColor)
             }
 
             drawTallFrond(-20f, -18f, -46f, -14f, -60f, 2f, -42f, -4f, -22f, -4f, -4f, 4f)
@@ -302,7 +304,7 @@ fun TropicalBackground(
                 )
                 close()
             }
-            drawPath(path = shortTrunk, color = islandColor)
+            drawPath(path = shortTrunk, color = palmColor)
 
             fun drawShortFrond(
                 c1x: Float, c1y: Float,
@@ -326,7 +328,7 @@ fun TropicalBackground(
                     )
                     close()
                 }
-                drawPath(path = p, color = islandColor)
+                drawPath(path = p, color = palmColor)
             }
 
             drawShortFrond(-18f, -14f, -38f, -8f, -48f, 8f, -34f, 0f, -18f, -2f, -3f, 4f)

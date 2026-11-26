@@ -49,9 +49,11 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -67,6 +69,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
@@ -133,6 +136,8 @@ fun TropicalHomeScreen(
         onCycleBrushSize = viewModel::cycleBrushSize,
         onSelectCanvasBgColor = viewModel::selectCanvasBgColor,
         onSelectCanvasRatio = viewModel::selectCanvasRatio,
+        onToggleCanvasToolbar = viewModel::toggleCanvasToolbar,
+        onToggleDockVisibility = viewModel::toggleDockVisibility,
         onUndoStroke = viewModel::undoStroke,
         onClearStrokes = viewModel::clearStrokes,
         modifier = modifier,
@@ -164,6 +169,8 @@ fun TropicalHomeContent(
     onCycleBrushSize: () -> Unit,
     onSelectCanvasBgColor: (Int) -> Unit,
     onSelectCanvasRatio: (CanvasRatio) -> Unit,
+    onToggleCanvasToolbar: () -> Unit,
+    onToggleDockVisibility: () -> Unit,
     onUndoStroke: () -> Unit,
     onClearStrokes: () -> Unit,
     modifier: Modifier = Modifier,
@@ -204,21 +211,96 @@ fun TropicalHomeContent(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // --- TOP TIER: Mode Pill + Reset + Clock ---
-                Box(
+                // --- TOP TIER: Mode Pill + Plus + Settings + Reset + Clock ---
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
                 ) {
                     Row(
-                        modifier = Modifier.align(Alignment.TopStart),
+                        modifier = Modifier
+                            .weight(1f)
+                            .horizontalScroll(rememberScrollState())
+                            .padding(end = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         TimeModePill(
                             currentMode = uiState.timeMode,
                             onSelectMode = onTimeModeSelected,
                         )
+
+                        val dockToggleDesc = stringResource(R.string.toggle_app_dock_desc)
+                        val plusBg by animateColorAsState(
+                            targetValue = if (uiState.isDockVisible) palette.searchButtonBlue else palette.glassDarkSurface,
+                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                            label = "plus_btn_bg",
+                        )
+                        val plusRotation by animateFloatAsState(
+                            targetValue = if (uiState.isDockVisible) 45f else 0f,
+                            animationSpec = colorOsSpring(),
+                            label = "plus_btn_rot",
+                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = plusBg,
+                            shadowElevation = 4.dp,
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .size(34.dp)
+                                .border(1.dp, palette.glassDarkBorder, CircleShape)
+                                .clip(CircleShape)
+                                .clickable(role = Role.Button, onClick = onToggleDockVisibility)
+                                .testTag("header_plus_button"),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Add,
+                                    contentDescription = dockToggleDesc,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .rotate(plusRotation),
+                                )
+                            }
+                        }
+
+                        val settingsDesc = stringResource(R.string.toggle_canvas_toolbar_desc)
+                        val settingsBg by animateColorAsState(
+                            targetValue = if (uiState.isCanvasToolbarVisible) palette.sunOrange else palette.glassDarkSurface,
+                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                            label = "settings_btn_bg",
+                        )
+                        val settingsRotation by animateFloatAsState(
+                            targetValue = if (uiState.isCanvasToolbarVisible) 60f else 0f,
+                            animationSpec = colorOsSpring(),
+                            label = "settings_btn_rot",
+                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = settingsBg,
+                            shadowElevation = 4.dp,
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .size(34.dp)
+                                .border(1.dp, palette.glassDarkBorder, CircleShape)
+                                .clip(CircleShape)
+                                .clickable(role = Role.Button, onClick = onToggleCanvasToolbar)
+                                .testTag("header_settings_button"),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Settings,
+                                    contentDescription = settingsDesc,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .rotate(settingsRotation),
+                                )
+                            }
+                        }
 
                         AnimatedVisibility(
                             visible = uiState.hasAnyMorph,
@@ -231,11 +313,12 @@ fun TropicalHomeContent(
                             val resetDesc = stringResource(R.string.reset_morphs_desc)
                             Surface(
                                 shape = CircleShape,
-                                color = palette.glassWhiteSurface,
+                                color = palette.glassDarkSurface,
                                 shadowElevation = 4.dp,
                                 modifier = Modifier
                                     .minimumInteractiveComponentSize()
                                     .size(34.dp)
+                                    .border(1.dp, palette.glassDarkBorder, CircleShape)
                                     .clip(CircleShape)
                                     .clickable(role = Role.Button, onClick = onResetAll)
                                     .testTag("reset_morphs_button"),
@@ -244,7 +327,7 @@ fun TropicalHomeContent(
                                     Icon(
                                         imageVector = Icons.Rounded.Refresh,
                                         contentDescription = resetDesc,
-                                        tint = palette.inkBlack,
+                                        tint = MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.size(18.dp),
                                     )
                                 }
@@ -259,52 +342,45 @@ fun TropicalHomeContent(
                         isMorphed = uiState.isClockMorphed,
                         isCompactWidth = isCompactWidth,
                         onClick = onClockClick,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 6.dp, end = 4.dp),
+                        modifier = Modifier.padding(top = 6.dp, end = 4.dp),
                     )
                 }
 
-                // --- HORIZONTAL APP DOCK (positioned cleanly above the canvas) ---
-                val activeIndex = uiState.activeDockApp?.let { uiState.dockApps.indexOf(it) } ?: -1
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically,
+                // --- HORIZONTAL APP DOCK (toggled by header Plus button) ---
+                AnimatedVisibility(
+                    visible = uiState.isDockVisible,
+                    enter = fadeIn(tween(200)) + expandVertically(
+                        expandFrom = Alignment.Top,
+                        animationSpec = colorOsSpring(),
+                    ),
+                    exit = fadeOut(tween(150)) + shrinkVertically(
+                        shrinkTowards = Alignment.Top,
+                        animationSpec = tween(180),
+                    ),
                 ) {
-                    uiState.dockApps.forEachIndexed { index, app ->
-                        val isExpanded = uiState.activeDockApp == app
-                        val isNeighbor = activeIndex >= 0 && abs(index - activeIndex) == 1
-                        DockAppButton(
-                            app = app,
-                            isExpanded = isExpanded,
-                            isNeighborNudged = isNeighbor,
-                            onClick = { onDockAppClick(app) },
-                            iconSize = 30.dp,
-                        )
+                    val activeIndex = uiState.activeDockApp?.let { uiState.dockApps.indexOf(it) } ?: -1
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .testTag("app_dock_row"),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        uiState.dockApps.forEachIndexed { index, app ->
+                            val isExpanded = uiState.activeDockApp == app
+                            val isNeighbor = activeIndex >= 0 && abs(index - activeIndex) == 1
+                            DockAppButton(
+                                app = app,
+                                isExpanded = isExpanded,
+                                isNeighborNudged = isNeighbor,
+                                onClick = { onDockAppClick(app) },
+                                iconSize = 30.dp,
+                            )
+                        }
                     }
                 }
-
-                // --- EXTERNAL CANVAS TOOLBAR (outside & above the canvas) ---
-                ExternalCanvasToolbar(
-                    hasStrokes = uiState.strokes.isNotEmpty(),
-                    selectedColorIndex = uiState.selectedColorIndex,
-                    selectedBrushSizeIndex = uiState.selectedBrushSizeIndex,
-                    selectedCanvasBgIndex = uiState.selectedCanvasBgIndex,
-                    selectedCanvasRatio = uiState.selectedCanvasRatio,
-                    onSelectColor = onSelectBrushColor,
-                    onCycleBrushSize = onCycleBrushSize,
-                    onSelectCanvasBgColor = onSelectCanvasBgColor,
-                    onSelectCanvasRatio = onSelectCanvasRatio,
-                    onUndo = onUndoStroke,
-                    onClear = onClearStrokes,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                )
 
                 // --- CENTER TIER: Pure Freehand Drawing Canvas (no toolbar inside!) ---
                 BoxWithConstraints(
@@ -323,6 +399,36 @@ fun TropicalHomeContent(
                         onStartStroke = onStartStroke,
                         onAppendStrokePoint = onAppendStrokePoint,
                         onFinishStroke = onFinishStroke,
+                    )
+                }
+
+                // --- EXTERNAL CANVAS TOOLBAR (toggled by header Settings button) ---
+                AnimatedVisibility(
+                    visible = uiState.isCanvasToolbarVisible,
+                    enter = fadeIn(tween(200)) + expandVertically(
+                        expandFrom = Alignment.Bottom,
+                        animationSpec = colorOsSpring(),
+                    ),
+                    exit = fadeOut(tween(150)) + shrinkVertically(
+                        shrinkTowards = Alignment.Bottom,
+                        animationSpec = tween(180),
+                    ),
+                ) {
+                    ExternalCanvasToolbar(
+                        hasStrokes = uiState.strokes.isNotEmpty(),
+                        selectedColorIndex = uiState.selectedColorIndex,
+                        selectedBrushSizeIndex = uiState.selectedBrushSizeIndex,
+                        selectedCanvasBgIndex = uiState.selectedCanvasBgIndex,
+                        selectedCanvasRatio = uiState.selectedCanvasRatio,
+                        onSelectColor = onSelectBrushColor,
+                        onCycleBrushSize = onCycleBrushSize,
+                        onSelectCanvasBgColor = onSelectCanvasBgColor,
+                        onSelectCanvasRatio = onSelectCanvasRatio,
+                        onUndo = onUndoStroke,
+                        onClear = onClearStrokes,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
                     )
                 }
 
@@ -584,12 +690,12 @@ private fun MorphingSearchWidget(
         label = "search_capsule_corner",
     )
     val capsuleBg by animateColorAsState(
-        targetValue = if (isExpanded) palette.glassWhiteSurface else Color.White.copy(alpha = 0.92f),
+        targetValue = if (isExpanded) palette.islandCharcoal.copy(alpha = 0.96f) else palette.glassDarkSurface,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "search_capsule_bg",
     )
     val capsuleBorder by animateColorAsState(
-        targetValue = if (isExpanded) palette.glassWhiteBorder else Color.White.copy(alpha = 0.6f),
+        targetValue = palette.glassDarkBorder,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "search_capsule_border",
     )
@@ -606,8 +712,8 @@ private fun MorphingSearchWidget(
             .shadow(
                 elevation = if (isExpanded) 14.dp else 8.dp,
                 shape = capsuleShape,
-                ambientColor = if (isExpanded) Color.Black.copy(alpha = 0.16f) else palette.searchButtonBlue,
-                spotColor = if (isExpanded) Color.Black.copy(alpha = 0.16f) else palette.searchButtonBlue,
+                ambientColor = if (isExpanded) Color.Black.copy(alpha = 0.35f) else palette.searchButtonBlue,
+                spotColor = if (isExpanded) Color.Black.copy(alpha = 0.35f) else palette.searchButtonBlue,
             )
             .clip(capsuleShape)
             .background(capsuleBg)
@@ -644,7 +750,7 @@ private fun MorphingSearchWidget(
                         .width(12.dp)
                         .height(2.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(palette.lineBlack),
+                        .background(Color.White.copy(alpha = 0.5f)),
                 )
                 Text(
                     text = searchHereText,
@@ -652,7 +758,7 @@ private fun MorphingSearchWidget(
                         fontSize = 9.sp,
                         letterSpacing = 1.4.sp,
                     ),
-                    color = palette.inkBlack,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     softWrap = false,
                     modifier = Modifier.testTag("search_here_label"),
@@ -686,7 +792,7 @@ private fun MorphingSearchWidget(
                         Text(
                             text = inlineHint,
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                            color = palette.mutedText.copy(alpha = 0.7f),
+                            color = palette.mutedText.copy(alpha = 0.75f),
                             maxLines = 1,
                             softWrap = false,
                         )
@@ -697,7 +803,7 @@ private fun MorphingSearchWidget(
                         singleLine = true,
                         textStyle = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 13.sp,
-                            color = palette.inkBlack,
+                            color = MaterialTheme.colorScheme.onSurface,
                         ),
                         cursorBrush = SolidColor(palette.searchButtonBlue),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -717,7 +823,7 @@ private fun MorphingSearchWidget(
                     Icon(
                         imageVector = Icons.Rounded.OpenInFull,
                         contentDescription = expandFullDesc,
-                        tint = palette.inkBlack,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -731,7 +837,7 @@ private fun MorphingSearchWidget(
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = closeDesc,
-                        tint = palette.inkBlack,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -909,11 +1015,14 @@ private fun TimeModePill(
     val palette = LocalTropicalPalette.current
     val toggleDesc = stringResource(R.string.toggle_time_mode_desc)
 
+    val pillShape = RoundedCornerShape(999.dp)
     Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        shape = pillShape,
+        color = palette.glassDarkSurface,
         shadowElevation = 4.dp,
-        modifier = modifier.semantics { contentDescription = toggleDesc },
+        modifier = modifier
+            .border(1.dp, palette.glassDarkBorder, pillShape)
+            .semantics { contentDescription = toggleDesc },
     ) {
         Row(
             modifier = Modifier.padding(3.dp),
@@ -923,14 +1032,14 @@ private fun TimeModePill(
             ModePillItem(
                 label = stringResource(R.string.mode_mockup),
                 selected = currentMode == TimeMode.MOCKUP,
-                activeColor = palette.inkBlack,
+                activeColor = palette.sunOrange,
                 onClick = { onSelectMode(TimeMode.MOCKUP) },
                 testTag = "mode_mockup_button",
             )
             ModePillItem(
                 label = stringResource(R.string.mode_live),
                 selected = currentMode == TimeMode.LIVE,
-                activeColor = palette.inkBlack,
+                activeColor = palette.sunOrange,
                 onClick = { onSelectMode(TimeMode.LIVE) },
                 testTag = "mode_live_button",
             )
@@ -1051,7 +1160,7 @@ private fun SearchOverlay(
                         onValueChange = onQueryChange,
                         singleLine = true,
                         textStyle = MaterialTheme.typography.titleMedium.copy(
-                            color = palette.inkBlack,
+                            color = MaterialTheme.colorScheme.onBackground,
                         ),
                         cursorBrush = SolidColor(palette.searchButtonBlue),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -1073,13 +1182,14 @@ private fun SearchOverlay(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(palette.inkBlack),
+                            .background(palette.islandCharcoal)
+                            .border(1.dp, palette.glassDarkBorder, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = closeDesc,
-                            tint = MaterialTheme.colorScheme.onPrimary,
+                            tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -1091,7 +1201,7 @@ private fun SearchOverlay(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.dp)
-                    .background(palette.inkBlack),
+                    .background(Color.White.copy(alpha = 0.75f)),
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -1132,7 +1242,7 @@ private fun SearchOverlay(
                             Text(
                                 text = appName,
                                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
-                                color = palette.inkBlack,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
                         }
                     }

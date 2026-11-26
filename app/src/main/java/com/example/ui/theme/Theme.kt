@@ -3,7 +3,7 @@ package com.example.ui.theme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -19,14 +19,15 @@ data class TropicalPalette(
     val waveBlue: Color = TropicalBlueWave,
     val waveBlueDeep: Color = TropicalBlueWaveDeep,
     val searchButtonBlue: Color = TropicalBlueButton,
-    val islandBlack: Color = TropicalBlack,
+    val islandBlack: Color = TropicalIslandDark,
     val islandCharcoal: Color = TropicalIslandCharcoal,
+    val palmSilhouette: Color = TropicalPalmSilhouette,
     val inkBlack: Color = TropicalInk,
     val lineBlack: Color = TropicalLine,
     val mutedText: Color = TropicalMuted,
     val helloWhite: Color = TropicalHelloWhite,
     val dateWhite: Color = TropicalSoftWhite,
-    val overlayBackground: Color = TropicalOverlayWhite,
+    val overlayBackground: Color = TropicalOverlayDark,
     val toastBackground: Color = TropicalToastBg,
     val glassWhiteSurface: Color = GlassWhiteSurface,
     val glassWhiteBorder: Color = GlassWhiteBorder,
@@ -42,18 +43,18 @@ data class TropicalPalette(
 
 val LocalTropicalPalette = staticCompositionLocalOf { TropicalPalette() }
 
-private val TropicalLightColorScheme = lightColorScheme(
+private val TropicalDarkColorScheme = darkColorScheme(
     primary = TropicalOrange,
     onPrimary = TropicalWhite,
     secondary = TropicalBlueButton,
     onSecondary = TropicalWhite,
     tertiary = TropicalAmber,
     onTertiary = TropicalBlack,
-    background = TropicalWhite,
-    onBackground = TropicalInk,
-    surface = TropicalWhite,
-    onSurface = TropicalInk,
-    surfaceVariant = TropicalSoftWhite,
+    background = TropicalBlack,
+    onBackground = TropicalWhite,
+    surface = TropicalIslandDark,
+    onSurface = TropicalWhite,
+    surfaceVariant = TropicalIslandCharcoal,
     onSurfaceVariant = TropicalMuted,
 )
 
@@ -69,7 +70,7 @@ fun TropicalTheme(
 ) {
     CompositionLocalProvider(LocalTropicalPalette provides TropicalPalette()) {
         MaterialTheme(
-            colorScheme = TropicalLightColorScheme,
+            colorScheme = TropicalDarkColorScheme,
             typography = Typography,
             shapes = TropicalShapes,
             content = content,

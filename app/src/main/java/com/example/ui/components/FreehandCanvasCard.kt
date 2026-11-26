@@ -292,11 +292,12 @@ fun ExternalCanvasToolbar(
     val bgSwatchDesc = stringResource(R.string.canvas_bg_swatch_desc)
     val ratioDesc = stringResource(R.string.canvas_ratio_desc)
 
+    val toolbarShape = RoundedCornerShape(20.dp)
     Surface(
-        color = Color.White.copy(alpha = 0.92f),
-        shape = RoundedCornerShape(20.dp),
-        shadowElevation = 5.dp,
-        modifier = modifier,
+        color = palette.glassDarkSurface,
+        shape = toolbarShape,
+        shadowElevation = 6.dp,
+        modifier = modifier.border(1.dp, palette.glassDarkBorder, toolbarShape),
     ) {
         Column(
             modifier = Modifier
@@ -315,12 +316,12 @@ fun ExternalCanvasToolbar(
                 CanvasRatio.entries.forEach { ratio ->
                     val selected = ratio == selectedCanvasRatio
                     val chipBg by animateColorAsState(
-                        targetValue = if (selected) palette.inkBlack else Color.Transparent,
+                        targetValue = if (selected) palette.sunOrange else Color.Transparent,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                         label = "ratio_chip_bg",
                     )
                     val chipTextColor by animateColorAsState(
-                        targetValue = if (selected) TropicalWhite else palette.inkBlack,
+                        targetValue = if (selected) TropicalWhite else palette.dateWhite,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                         label = "ratio_chip_text",
                     )
@@ -349,7 +350,7 @@ fun ExternalCanvasToolbar(
                     modifier = Modifier
                         .width(1.dp)
                         .height(12.dp)
-                        .background(palette.inkBlack.copy(alpha = 0.14f)),
+                        .background(Color.White.copy(alpha = 0.16f)),
                 )
 
                 canvasBgColors.forEachIndexed { idx, bgColor ->
@@ -367,7 +368,7 @@ fun ExternalCanvasToolbar(
                             .background(bgColor.copy(alpha = 1f))
                             .border(
                                 width = if (selected) 2.dp else 1.dp,
-                                color = if (selected) palette.sunOrange else palette.inkBlack.copy(alpha = 0.22f),
+                                color = if (selected) palette.sunOrange else Color.White.copy(alpha = 0.35f),
                                 shape = CircleShape,
                             )
                             .clickable(role = Role.RadioButton) { onSelectCanvasBgColor(idx) }
@@ -381,7 +382,7 @@ fun ExternalCanvasToolbar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.8.dp)
-                    .background(palette.inkBlack.copy(alpha = 0.07f)),
+                    .background(Color.White.copy(alpha = 0.10f)),
             )
 
             // Row 2: Brush Colors + Size + Undo + Clear
@@ -412,7 +413,7 @@ fun ExternalCanvasToolbar(
                                 .background(color)
                                 .border(
                                     width = if (selected) 2.dp else 1.dp,
-                                    color = if (selected) palette.sunOrange else palette.inkBlack.copy(alpha = 0.16f),
+                                    color = if (selected) palette.sunOrange else Color.White.copy(alpha = 0.30f),
                                     shape = CircleShape,
                                 )
                                 .clickable(role = Role.RadioButton) { onSelectColor(idx) }
@@ -443,10 +444,10 @@ fun ExternalCanvasToolbar(
                                 .clip(CircleShape)
                                 .background(activeBrushColor)
                                 .then(
-                                    if (activeBrushColor == TropicalWhite) {
-                                        Modifier.border(1.dp, palette.inkBlack.copy(alpha = 0.35f), CircleShape)
-                                    } else {
-                                        Modifier
+                                    when (activeBrushColor) {
+                                        TropicalWhite -> Modifier.border(1.dp, palette.inkBlack.copy(alpha = 0.35f), CircleShape)
+                                        palette.inkBlack -> Modifier.border(1.dp, Color.White.copy(alpha = 0.45f), CircleShape)
+                                        else -> Modifier
                                     },
                                 ),
                         )
@@ -462,7 +463,7 @@ fun ExternalCanvasToolbar(
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.Undo,
                             contentDescription = undoDesc,
-                            tint = if (hasStrokes) palette.inkBlack else palette.mutedText.copy(alpha = 0.35f),
+                            tint = if (hasStrokes) TropicalWhite else palette.mutedText.copy(alpha = 0.4f),
                             modifier = Modifier.size(17.dp),
                         )
                     }
@@ -477,7 +478,7 @@ fun ExternalCanvasToolbar(
                         Icon(
                             imageVector = Icons.Rounded.DeleteOutline,
                             contentDescription = clearDesc,
-                            tint = if (hasStrokes) IconMusicRed else palette.mutedText.copy(alpha = 0.35f),
+                            tint = if (hasStrokes) IconMusicRed else palette.mutedText.copy(alpha = 0.4f),
                             modifier = Modifier.size(17.dp),
                         )
                     }

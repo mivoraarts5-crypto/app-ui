@@ -123,12 +123,12 @@ fun DockAppButton(
         label = "dock_scale",
     )
     val pillColor by animateColorAsState(
-        targetValue = if (isExpanded) palette.glassWhiteSurface else Color.Transparent,
+        targetValue = if (isExpanded) palette.glassDarkSurface else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "dock_pill_bg",
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isExpanded) palette.glassWhiteBorder else Color.Transparent,
+        targetValue = if (isExpanded) palette.glassDarkBorder else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "dock_pill_border",
     )
@@ -145,8 +145,8 @@ fun DockAppButton(
                     Modifier.shadow(
                         elevation = 10.dp,
                         shape = shape,
-                        ambientColor = Color.Black.copy(alpha = 0.14f),
-                        spotColor = Color.Black.copy(alpha = 0.14f),
+                        ambientColor = Color.Black.copy(alpha = 0.35f),
+                        spotColor = Color.Black.copy(alpha = 0.35f),
                     )
                 } else {
                     Modifier
@@ -184,7 +184,7 @@ fun DockAppButton(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                     ),
-                    color = palette.inkBlack,
+                    color = TropicalWhite,
                     maxLines = 1,
                     softWrap = false,
                 )
