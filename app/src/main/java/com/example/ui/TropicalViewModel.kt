@@ -1,9 +1,11 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.R
@@ -67,12 +69,14 @@ data class MusicLayer(
     val layerId: Long,
     val track: MusicTrack,
     val offsetNormalized: Offset = Offset.Zero,
+    val isVisible: Boolean = true,
 )
 
 sealed interface FeedbackMessage {
     data class OpeningApp(@param:StringRes val appNameRes: Int) : FeedbackMessage
     data class SearchingQuery(val query: String) : FeedbackMessage
     data class AddedMusicToCanvas(val trackTitle: String) : FeedbackMessage
+    data class ChangedWallpaper(@param:StringRes val nameRes: Int) : FeedbackMessage
 }
 
 data class TropicalUiState(
@@ -101,6 +105,9 @@ data class TropicalUiState(
     val selectedCanvasRatio: CanvasRatio = CanvasRatio.SQUARE,
     val isCanvasToolbarVisible: Boolean = false,
     val isDockVisible: Boolean = false,
+    val isWallpaperPickerVisible: Boolean = false,
+    val wallpaperPreset: WallpaperPreset = WallpaperPreset.TROPICAL,
+    val customWallpaperBitmap: ImageBitmap? = null,
     val musicTracks: List<MusicTrack> = DefaultMusicLibrary,
     val isMusicPickerVisible: Boolean = false,
     val musicLayers: List<MusicLayer> = emptyList(),
@@ -146,8 +153,34 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
     private val monthFormat = SimpleDateFormat("MMM", Locale.US)
     private val dayNumFormat = SimpleDateFormat("d", Locale.US)
 
+    private val prefs by lazy {
+        application.getSharedPreferences("tropical_prefs", Context.MODE_PRIVATE)
+    }
+
     init {
+        restoreSavedWallpaper()
         startClockTicker()
+    }
+
+    private fun restoreSavedWallpaper() {
+        val savedKey = prefs.getString("wallpaper_preset", null)
+        val preset = WallpaperPreset.fromStorageKey(savedKey)
+        viewModelScope.launch {
+            val customBmp = withContext(Dispatchers.IO) {
+                loadPersistedCustomWallpaper(getApplication())
+            }
+            val effectivePreset = if (preset == WallpaperPreset.CUSTOM_PHOTO && customBmp == null) {
+                WallpaperPreset.TROPICAL
+            } else {
+                preset
+            }
+            _uiState.update {
+                it.copy(
+                    wallpaperPreset = effectivePreset,
+                    customWallpaperBitmap = customBmp,
+                )
+            }
+        }
     }
 
     private fun startClockTicker() {
@@ -268,11 +301,59 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun toggleCanvasToolbar() {
-        _uiState.update { it.copy(isCanvasToolbarVisible = !it.isCanvasToolbarVisible) }
+        _uiState.update {
+            val opening = !it.isCanvasToolbarVisible
+            it.copy(
+                isCanvasToolbarVisible = opening,
+                isWallpaperPickerVisible = if (opening) false else it.isWallpaperPickerVisible,
+            )
+        }
     }
 
     fun toggleDockVisibility() {
         _uiState.update { it.copy(isDockVisible = !it.isDockVisible) }
+    }
+
+    fun toggleWallpaperPicker() {
+        _uiState.update {
+            val opening = !it.isWallpaperPickerVisible
+            it.copy(
+                isWallpaperPickerVisible = opening,
+                isCanvasToolbarVisible = if (opening) false else it.isCanvasToolbarVisible,
+                isMusicPickerVisible = if (opening) false else it.isMusicPickerVisible,
+                activeDockApp = if (opening && it.activeDockApp == DockApp.MUSIC) null else it.activeDockApp,
+            )
+        }
+    }
+
+    fun closeWallpaperPicker() {
+        _uiState.update { it.copy(isWallpaperPickerVisible = false) }
+    }
+
+    fun selectWallpaperPreset(preset: WallpaperPreset) {
+        if (preset == WallpaperPreset.CUSTOM_PHOTO && _uiState.value.customWallpaperBitmap == null) {
+            return
+        }
+        prefs.edit().putString("wallpaper_preset", preset.name).apply()
+        _uiState.update { it.copy(wallpaperPreset = preset) }
+        showFeedback(FeedbackMessage.ChangedWallpaper(preset.labelRes))
+    }
+
+    fun setCustomWallpaperUri(uri: Uri) {
+        val appContext = getApplication<Application>()
+        viewModelScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                persistAndLoadWallpaperUri(appContext, uri)
+            } ?: return@launch
+            prefs.edit().putString("wallpaper_preset", WallpaperPreset.CUSTOM_PHOTO.name).apply()
+            _uiState.update {
+                it.copy(
+                    customWallpaperBitmap = loaded,
+                    wallpaperPreset = WallpaperPreset.CUSTOM_PHOTO,
+                )
+            }
+            showFeedback(FeedbackMessage.ChangedWallpaper(WallpaperPreset.CUSTOM_PHOTO.labelRes))
+        }
     }
 
     fun closeMusicPicker() {
@@ -470,6 +551,15 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun toggleMusicLayerVisibility(layerId: Long) {
+        _uiState.update { state ->
+            val updated = state.musicLayers.map { layer ->
+                if (layer.layerId == layerId) layer.copy(isVisible = !layer.isVisible) else layer
+            }
+            state.copy(musicLayers = updated)
+        }
+    }
+
     fun toggleSunMorph() {
         _uiState.update { it.copy(isSunMorphed = !it.isSunMorphed) }
     }
@@ -548,6 +638,7 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
                 it.copy(
                     activeDockApp = if (opening) DockApp.MUSIC else null,
                     isMusicPickerVisible = opening,
+                    isWallpaperPickerVisible = if (opening) false else it.isWallpaperPickerVisible,
                     isSearchOpen = false,
                     searchQuery = "",
                 )

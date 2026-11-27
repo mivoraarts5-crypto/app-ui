@@ -74,6 +74,7 @@ import com.example.ui.theme.IconTwitterCyan
 import com.example.ui.theme.IconWhatsAppGreen
 import com.example.ui.theme.LocalTropicalPalette
 import com.example.ui.theme.TropicalWhite
+import com.example.ui.theme.hard2dShadow
 
 @Composable
 fun DockAppButton(
@@ -123,12 +124,12 @@ fun DockAppButton(
         label = "dock_scale",
     )
     val pillColor by animateColorAsState(
-        targetValue = if (isExpanded) palette.glassDarkSurface else Color.Transparent,
+        targetValue = if (isExpanded) palette.graphicElevated else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "dock_pill_bg",
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isExpanded) palette.glassDarkBorder else Color.Transparent,
+        targetValue = if (isExpanded) palette.graphicLightBorder else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "dock_pill_border",
     )
@@ -142,19 +143,21 @@ fun DockAppButton(
             .scale(scale)
             .then(
                 if (isExpanded) {
-                    Modifier.shadow(
-                        elevation = 10.dp,
-                        shape = shape,
-                        ambientColor = Color.Black.copy(alpha = 0.35f),
-                        spotColor = Color.Black.copy(alpha = 0.35f),
-                    )
+                    Modifier
+                        .padding(end = 2.dp, bottom = 2.dp)
+                        .hard2dShadow(
+                            shape = shape,
+                            shadowColor = palette.sunOrange,
+                            offsetX = 2.5.dp,
+                            offsetY = 2.5.dp,
+                        )
                 } else {
                     Modifier
                 },
             )
             .clip(shape)
             .background(pillColor)
-            .border(width = if (isExpanded) 1.dp else 0.dp, color = borderColor, shape = shape)
+            .border(width = if (isExpanded) 1.5.dp else 0.dp, color = borderColor, shape = shape)
             .testTag(app.testTag)
             .semantics { contentDescription = label }
             .clickable(

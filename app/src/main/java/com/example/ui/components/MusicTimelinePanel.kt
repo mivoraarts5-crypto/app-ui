@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,58 +17,62 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.audio.formatDurationMs
 import com.example.ui.MusicLayer
 import com.example.ui.theme.IconIgPink
 import com.example.ui.theme.IconIgPurple
 import com.example.ui.theme.IconMusicRed
 import com.example.ui.theme.IconNotesBack
 import com.example.ui.theme.IconTwitterCyan
-import com.example.ui.theme.IconWhatsAppGreen
 import com.example.ui.theme.LocalTropicalPalette
 import com.example.ui.theme.TropicalPalette
 import com.example.ui.theme.TropicalWhite
+import com.example.ui.theme.hard2dShadow
+import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 @Composable
@@ -75,11 +80,25 @@ private fun MusicAccent.timelineColor(palette: TropicalPalette): Color = when (t
     MusicAccent.ORANGE -> palette.sunOrange
     MusicAccent.BLUE -> palette.waveBlue
     MusicAccent.RED -> IconMusicRed
-    MusicAccent.GREEN -> IconWhatsAppGreen
+    MusicAccent.GREEN -> palette.acidLime
     MusicAccent.PURPLE -> IconIgPurple
     MusicAccent.PINK -> IconIgPink
     MusicAccent.CYAN -> IconTwitterCyan
     MusicAccent.AMBER -> IconNotesBack
+}
+
+private fun MusicAccent.usesDarkInk(): Boolean = when (this) {
+    MusicAccent.GREEN, MusicAccent.AMBER, MusicAccent.ORANGE, MusicAccent.CYAN -> true
+    MusicAccent.BLUE, MusicAccent.RED, MusicAccent.PURPLE, MusicAccent.PINK -> false
+}
+
+private fun formatTimecode(ms: Long): String {
+    val safe = ms.coerceAtLeast(0L)
+    val totalSeconds = safe / 1000L
+    val mins = totalSeconds / 60L
+    val secs = totalSeconds % 60L
+    val frames = ((safe % 1000L) / 33L).coerceIn(0L, 29L)
+    return String.format(Locale.US, "%02d:%02d:%02d", mins, secs, frames)
 }
 
 @Composable
@@ -92,13 +111,13 @@ fun MusicTimelinePanel(
     onTogglePlay: () -> Unit,
     onSeekToMs: (Long) -> Unit,
     onRemoveLayer: (Long) -> Unit,
+    onToggleLayerVisibility: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (layers.isEmpty()) return
 
     val palette = LocalTropicalPalette.current
     val activeLayer = layers.firstOrNull { it.layerId == activeLayerId } ?: layers.first()
-    val activeAccent = activeLayer.track.accent.timelineColor(palette)
     val totalTimelineMs = layers.maxOf { it.track.durationMs }.coerceAtLeast(1_000L)
     val progress = (positionMs.toFloat() / totalTimelineMs.toFloat()).coerceIn(0f, 1f)
 
@@ -106,238 +125,285 @@ fun MusicTimelinePanel(
     val removeDesc = stringResource(R.string.remove_music_desc)
     val rulerDesc = stringResource(R.string.time_ruler_desc)
     val layerDesc = stringResource(R.string.music_layer_desc)
-
-    val textMeasurer = rememberTextMeasurer()
-    val rulerLabelStyle = TextStyle(
-        color = palette.mutedText,
-        fontSize = 9.sp,
-        fontWeight = FontWeight.Medium,
-    )
+    val visibilityDesc = stringResource(R.string.toggle_layer_visibility_desc)
 
     val panelShape = RoundedCornerShape(18.dp)
+    val leftRailWidth = 74.dp
+    val railGap = 8.dp
+    val rulerHeight = 36.dp
 
-    Surface(
-        color = palette.glassDarkSurface,
-        shape = panelShape,
-        shadowElevation = 6.dp,
+    Box(
         modifier = modifier
-            .border(1.dp, palette.glassDarkBorder, panelShape)
+            .padding(end = 3.dp, bottom = 3.dp)
+            .hard2dShadow(
+                shape = panelShape,
+                shadowColor = palette.hardShadowDark,
+                offsetX = 4.dp,
+                offsetY = 4.dp,
+            )
+            .clip(panelShape)
+            .background(palette.glassDarkSurface)
+            .border(1.8.dp, palette.glassDarkBorder, panelShape)
             .testTag("music_timeline_panel"),
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(top = 6.dp, bottom = 8.dp, end = 8.dp),
         ) {
-            // Header row: Layer count + shared time readout + Play/Pause for active layer
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
+                // --- TOP HEADER ROW: Left Play/Layer Badge + Right High-Density Time Ruler ---
                 Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(rulerHeight),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Surface(
-                        color = activeAccent.copy(alpha = 0.22f),
-                        shape = RoundedCornerShape(999.dp),
+                    // Left control header (Play/Pause + Layers count)
+                    Row(
+                        modifier = Modifier
+                            .width(leftRailWidth)
+                            .padding(start = 8.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .hard2dShadow(CircleShape, palette.hardShadowDeep, 2.dp, 2.dp)
+                                .clip(CircleShape)
+                                .background(palette.acidLime)
+                                .border(1.4.dp, palette.inkBlack, CircleShape)
+                                .clickable(role = Role.Button, onClick = onTogglePlay)
+                                .semantics { contentDescription = playDesc }
+                                .testTag("timeline_play_pause"),
+                            contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Layers,
-                                contentDescription = null,
-                                tint = activeAccent,
-                                modifier = Modifier.size(12.dp),
+                                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = playDesc,
+                                tint = palette.inkBlack,
+                                modifier = Modifier.size(16.dp),
                             )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(7.dp))
+                                .background(palette.graphicElevated)
+                                .border(1.1.dp, palette.glassDarkBorder, RoundedCornerShape(7.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
                             Text(
-                                text = stringResource(R.string.music_layers_count_fmt, layers.size),
+                                text = "${layers.size}L",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
                                 ),
-                                color = TropicalWhite,
+                                color = palette.acidLime,
                             )
                         }
                     }
 
-                    Text(
-                        text = "${formatDurationMs(positionMs)} / ${formatDurationMs(totalTimelineMs)}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        ),
-                        color = palette.mutedText,
-                        modifier = Modifier.testTag("timeline_time_readout"),
-                    )
-                }
+                    Spacer(modifier = Modifier.width(railGap))
 
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(activeAccent)
-                        .clickable(role = Role.Button, onClick = onTogglePlay)
-                        .semantics { contentDescription = playDesc }
-                        .testTag("timeline_play_pause"),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = playDesc,
-                        tint = TropicalWhite,
-                        modifier = Modifier.size(15.dp),
-                    )
-                }
-            }
-
-            // Single Shared Time Ruler + Multi-Layer Track Stack with one continuous Playhead Needle
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(layers.size, totalTimelineMs) {
-                        detectTapGestures { offset ->
-                            val frac = (offset.x / size.width.toFloat().coerceAtLeast(1f)).coerceIn(0f, 1f)
-                            onSeekToMs((frac * totalTimelineMs).toLong())
-                        }
-                    }
-                    .pointerInput(layers.size, totalTimelineMs) {
-                        detectHorizontalDragGestures { change, _ ->
-                            change.consume()
-                            val frac = (change.position.x / size.width.toFloat().coerceAtLeast(1f)).coerceIn(0f, 1f)
-                            onSeekToMs((frac * totalTimelineMs).toLong())
-                        }
-                    },
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // ONE Single Time Ruler pinned at top
-                    Canvas(
+                    // Right Pinned Time Ruler (High-density Alight-style top ticks, tap or drag to seek)
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(22.dp)
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .pointerInput(layers.size, totalTimelineMs) {
+                                detectTapGestures { offset ->
+                                    val frac = (offset.x / size.width.toFloat().coerceAtLeast(1f)).coerceIn(0f, 1f)
+                                    onSeekToMs((frac * totalTimelineMs).toLong())
+                                }
+                            }
+                            .pointerInput(layers.size, totalTimelineMs) {
+                                detectHorizontalDragGestures { change, _ ->
+                                    change.consume()
+                                    val frac = (change.position.x / size.width.toFloat().coerceAtLeast(1f)).coerceIn(0f, 1f)
+                                    onSeekToMs((frac * totalTimelineMs).toLong())
+                                }
+                            }
                             .semantics { contentDescription = rulerDesc }
                             .testTag("music_time_ruler"),
                     ) {
-                        val w = size.width
-                        val h = size.height
-                        val totalTicks = 24
-                        val majorEvery = 6
-
-                        drawLine(
-                            color = Color.White.copy(alpha = 0.18f),
-                            start = Offset(0f, h - 1.dp.toPx()),
-                            end = Offset(w, h - 1.dp.toPx()),
-                            strokeWidth = 1.dp.toPx(),
-                        )
-
-                        for (i in 0..totalTicks) {
-                            val frac = i.toFloat() / totalTicks.toFloat()
-                            val x = frac * w
-                            val isMajor = i % majorEvery == 0
-                            val tickHeight = if (isMajor) 7.dp.toPx() else 3.5.dp.toPx()
-
-                            drawLine(
-                                color = if (isMajor) Color.White.copy(alpha = 0.58f) else Color.White.copy(alpha = 0.25f),
-                                start = Offset(x, h - tickHeight),
-                                end = Offset(x, h - 1.dp.toPx()),
-                                strokeWidth = if (isMajor) 1.3.dp.toPx() else 1.dp.toPx(),
-                            )
-
-                            if (isMajor) {
-                                val tickMs = (frac * totalTimelineMs).toLong()
-                                val label = formatDurationMs(tickMs)
-                                val measured = textMeasurer.measure(text = label, style = rulerLabelStyle)
-                                val labelX = when (i) {
-                                    0 -> 0f
-                                    totalTicks -> (w - measured.size.width).coerceAtLeast(0f)
-                                    else -> (x - measured.size.width / 2f).coerceIn(0f, (w - measured.size.width).coerceAtLeast(0f))
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val w = size.width
+                            val totalTicks = 60
+                            for (i in 0..totalTicks) {
+                                val x = (i.toFloat() / totalTicks.toFloat()) * w
+                                val isMajor = i % 10 == 0
+                                val isMedium = i % 5 == 0 && !isMajor
+                                val tickH = when {
+                                    isMajor -> 13.dp.toPx()
+                                    isMedium -> 8.dp.toPx()
+                                    else -> 4.5.dp.toPx()
                                 }
-                                drawText(
-                                    textLayoutResult = measured,
-                                    topLeft = Offset(labelX, 0f),
+                                drawLine(
+                                    color = when {
+                                        isMajor -> palette.mutedText.copy(alpha = 0.85f)
+                                        isMedium -> palette.mutedText.copy(alpha = 0.55f)
+                                        else -> palette.glassDarkBorder
+                                    },
+                                    start = Offset(x, 0f),
+                                    end = Offset(x, tickH),
+                                    strokeWidth = if (isMajor) 1.3.dp.toPx() else 0.9.dp.toPx(),
+                                    cap = StrokeCap.Butt,
                                 )
                             }
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                // --- SCROLLABLE LAYER ROWS (Left Eye-Icon Pill + Right Striped Track Clip Bar) ---
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 148.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    layers.forEachIndexed { index, layer ->
+                        val isSelected = layer.layerId == activeLayer.layerId
+                        val layerAccent = layer.track.accent.timelineColor(palette)
+                        val darkInkOnBar = layer.track.accent.usesDarkInk()
+                        val barContentColor = if (darkInkOnBar) palette.inkBlack else TropicalWhite
+                        val widthRatio = (layer.track.durationMs.toFloat() / totalTimelineMs.toFloat())
+                            .coerceIn(0.42f, 1f)
+                        val layerAlpha = if (layer.isVisible) 1f else 0.45f
 
-                    // Multiple stacked Music Layers under the single Time Ruler
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 122.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                        layers.forEachIndexed { index, layer ->
-                            val isSelected = layer.layerId == activeLayer.layerId
-                            val layerAccent = layer.track.accent.timelineColor(palette)
-                            val widthRatio = (layer.track.durationMs.toFloat() / totalTimelineMs.toFloat())
-                                .coerceIn(0.28f, 1f)
-                            val layerProgress = (positionMs.toFloat() / layer.track.durationMs.coerceAtLeast(1L).toFloat())
-                                .coerceIn(0f, 1f)
+                        val waveformHeights = remember(layer.track.id) {
+                            val seed = (layer.track.id.hashCode() and 0x7FFF) / 1000f
+                            List(36) { i ->
+                                val wave = abs(sin(i * 0.45f + seed)) * 0.55f +
+                                    abs(sin(i * 0.92f + seed * 1.6f)) * 0.30f + 0.15f
+                                wave.coerceIn(0.2f, 1f)
+                            }
+                        }
 
-                            val waveformHeights = remember(layer.track.id) {
-                                val seed = (layer.track.id.hashCode() and 0x7FFF) / 1000f
-                                List(48) { i ->
-                                    val wave = abs(sin(i * 0.42f + seed)) * 0.55f +
-                                        abs(sin(i * 0.91f + seed * 1.7f)) * 0.30f + 0.15f
-                                    wave.coerceIn(0.18f, 1f)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(34.dp)
+                                .semantics { contentDescription = layerDesc }
+                                .testTag("music_timeline_layer_${layer.layerId}"),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // Left Alight-Motion Style Rounded-Right Control Pill (Eye Toggle + Audio Icon)
+                            val pillShape = RoundedCornerShape(topEnd = 999.dp, bottomEnd = 999.dp)
+                            Row(
+                                modifier = Modifier
+                                    .width(leftRailWidth)
+                                    .fillMaxHeight()
+                                    .clip(pillShape)
+                                    .background(if (isSelected) palette.graphicElevated else palette.islandCharcoal)
+                                    .border(
+                                        width = if (isSelected) 1.5.dp else 1.2.dp,
+                                        color = if (isSelected) TropicalWhite else palette.glassDarkBorder,
+                                        shape = pillShape,
+                                    )
+                                    .padding(start = 8.dp, end = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .clickable(role = Role.Button) {
+                                            onToggleLayerVisibility(layer.layerId)
+                                        }
+                                        .semantics { contentDescription = visibilityDesc }
+                                        .testTag("timeline_toggle_visibility_${layer.layerId}"),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = if (layer.isVisible) {
+                                            Icons.Rounded.Visibility
+                                        } else {
+                                            Icons.Rounded.VisibilityOff
+                                        },
+                                        contentDescription = visibilityDesc,
+                                        tint = if (layer.isVisible) TropicalWhite else palette.mutedText,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(layerAccent.copy(alpha = 0.22f))
+                                        .border(1.dp, layerAccent.copy(alpha = 0.8f), RoundedCornerShape(6.dp)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = if (isSelected && isPlaying) {
+                                            Icons.Rounded.GraphicEq
+                                        } else {
+                                            Icons.Rounded.MusicNote
+                                        },
+                                        contentDescription = null,
+                                        tint = layerAccent,
+                                        modifier = Modifier.size(13.dp),
+                                    )
                                 }
                             }
 
+                            Spacer(modifier = Modifier.width(railGap))
+
+                            // Right Track Clip Bar (Solid 2D Accent + Vertical Zebra Stripes + Label + Handle + Remove)
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(34.dp)
-                                    .semantics { contentDescription = layerDesc }
-                                    .testTag("music_timeline_layer_${layer.layerId}"),
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                contentAlignment = Alignment.CenterStart,
                             ) {
-                                // Clip bar proportional to track duration under the shared ruler
+                                val clipShape = RoundedCornerShape(7.dp)
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth(widthRatio)
                                         .fillMaxHeight()
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(
-                                            if (isSelected) layerAccent.copy(alpha = 0.24f)
-                                            else layerAccent.copy(alpha = 0.12f),
-                                        )
+                                        .alpha(layerAlpha)
+                                        .clip(clipShape)
+                                        .background(layerAccent)
                                         .border(
-                                            width = if (isSelected) 1.4.dp else 0.9.dp,
-                                            color = if (isSelected) layerAccent else layerAccent.copy(alpha = 0.48f),
-                                            shape = RoundedCornerShape(10.dp),
+                                            width = if (isSelected) 1.6.dp else 1.2.dp,
+                                            color = if (isSelected) TropicalWhite else palette.inkBlack,
+                                            shape = clipShape,
                                         )
                                         .clickable(role = Role.Button) { onSelectLayer(layer.layerId) },
                                 ) {
+                                    // Vertical Zebra Stripes + Subtle 2D Waveform along bottom
                                     Canvas(modifier = Modifier.fillMaxSize()) {
                                         val w = size.width
                                         val h = size.height
+                                        val stripeStep = 10.dp.toPx()
+                                        val stripeWidth = 5.dp.toPx()
+                                        var sx = 4.dp.toPx()
+                                        while (sx < w) {
+                                            drawRect(
+                                                color = Color.White.copy(alpha = 0.14f),
+                                                topLeft = Offset(sx, 0f),
+                                                size = Size(stripeWidth, h),
+                                            )
+                                            sx += stripeStep
+                                        }
+
+                                        // Subtle bottom waveform edge
                                         val count = waveformHeights.size
                                         val slotW = w / count.toFloat()
-                                        val barW = (slotW * 0.52f).coerceAtLeast(1.4.dp.toPx())
-
+                                        val barW = (slotW * 0.45f).coerceAtLeast(1.5.dp.toPx())
                                         waveformHeights.forEachIndexed { idx, amp ->
-                                            val barFrac = (idx + 0.5f) / count.toFloat()
-                                            val barH = (h * 0.64f * amp).coerceAtLeast(3.5.dp.toPx())
-                                            val topY = (h - barH) / 2f
-                                            val x = idx * slotW + (slotW - barW) / 2f
-                                            val barColor = if (barFrac <= layerProgress) {
-                                                layerAccent
-                                            } else {
-                                                Color.White.copy(alpha = 0.26f)
-                                            }
-                                            drawRoundRect(
-                                                color = barColor,
-                                                topLeft = Offset(x, topY),
-                                                size = Size(barW, barH),
-                                                cornerRadius = CornerRadius(barW / 2f, barW / 2f),
+                                            val bh = (h * 0.24f * amp).coerceAtLeast(2.dp.toPx())
+                                            drawRect(
+                                                color = barContentColor.copy(alpha = 0.22f),
+                                                topLeft = Offset(idx * slotW, h - bh),
+                                                size = Size(barW, bh),
                                             )
                                         }
                                     }
@@ -345,7 +411,7 @@ fun MusicTimelinePanel(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .padding(horizontal = 6.dp),
+                                            .padding(horizontal = 8.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                     ) {
@@ -354,70 +420,56 @@ fun MusicTimelinePanel(
                                                 .weight(1f)
                                                 .padding(end = 4.dp),
                                             verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.layer_short_fmt, index + 1),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                ),
+                                                color = barContentColor.copy(alpha = 0.72f),
+                                            )
+                                            Text(
+                                                text = layer.track.title,
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontSize = 11.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                ),
+                                                color = barContentColor,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
                                             Box(
                                                 modifier = Modifier
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(layerAccent)
-                                                    .padding(horizontal = 5.dp, vertical = 1.dp),
-                                            ) {
-                                                Text(
-                                                    text = stringResource(R.string.layer_short_fmt, index + 1),
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        fontSize = 9.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                    ),
-                                                    color = TropicalWhite,
-                                                )
-                                            }
-
-                                            Row(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(999.dp))
-                                                    .background(Color.Black.copy(alpha = 0.55f))
-                                                    .padding(horizontal = 6.dp, vertical = 1.5.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                                    .size(18.dp)
+                                                    .clip(CircleShape)
+                                                    .background(palette.inkBlack.copy(alpha = 0.22f))
+                                                    .clickable(role = Role.Button) {
+                                                        onRemoveLayer(layer.layerId)
+                                                    }
+                                                    .semantics { contentDescription = removeDesc }
+                                                    .testTag("timeline_remove_layer_${layer.layerId}"),
+                                                contentAlignment = Alignment.Center,
                                             ) {
                                                 Icon(
-                                                    imageVector = if (isSelected && isPlaying) {
-                                                        Icons.Rounded.GraphicEq
-                                                    } else {
-                                                        Icons.Rounded.MusicNote
-                                                    },
-                                                    contentDescription = null,
-                                                    tint = layerAccent,
-                                                    modifier = Modifier.size(10.dp),
-                                                )
-                                                Text(
-                                                    text = "${layer.track.title} • ${layer.track.duration}",
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        fontSize = 9.5.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                    ),
-                                                    color = TropicalWhite,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
+                                                    imageVector = Icons.Rounded.Close,
+                                                    contentDescription = removeDesc,
+                                                    tint = barContentColor,
+                                                    modifier = Modifier.size(11.dp),
                                                 )
                                             }
-                                        }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .size(20.dp)
-                                                .clip(CircleShape)
-                                                .background(Color.Black.copy(alpha = 0.6f))
-                                                .clickable(role = Role.Button) { onRemoveLayer(layer.layerId) }
-                                                .semantics { contentDescription = removeDesc }
-                                                .testTag("timeline_remove_layer_${layer.layerId}"),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
                                             Icon(
-                                                imageVector = Icons.Rounded.Close,
-                                                contentDescription = removeDesc,
-                                                tint = TropicalWhite,
-                                                modifier = Modifier.size(11.dp),
+                                                imageVector = Icons.Rounded.DragHandle,
+                                                contentDescription = null,
+                                                tint = barContentColor.copy(alpha = 0.72f),
+                                                modifier = Modifier.size(14.dp),
                                             )
                                         }
                                     }
@@ -426,26 +478,69 @@ fun MusicTimelinePanel(
                         }
                     }
                 }
+            }
 
-                // Continuous Playhead Needle spanning the single Ruler + ALL Music Layers
-                Canvas(modifier = Modifier.matchParentSize()) {
-                    val x = (progress * size.width).coerceIn(3.dp.toPx(), size.width - 3.dp.toPx())
-                    drawLine(
-                        color = TropicalWhite,
-                        start = Offset(x, 12.dp.toPx()),
-                        end = Offset(x, size.height),
-                        strokeWidth = 2.dp.toPx(),
+            // --- CONTINUOUS PLAYHEAD LINE + FLOATING TIMECODE PILL OVER RIGHT TIMELINE AREA ---
+            Row(modifier = Modifier.matchParentSize()) {
+                Spacer(modifier = Modifier.width(leftRailWidth + railGap))
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                ) {
+                    val density = LocalDensity.current
+                    val trackWidthPx = with(density) { maxWidth.toPx() }.coerceAtLeast(1f)
+                    val playheadX = (progress * trackWidthPx).coerceIn(
+                        with(density) { 2.dp.toPx() },
+                        trackWidthPx - with(density) { 2.dp.toPx() },
                     )
-                    drawCircle(
-                        color = palette.sunOrange,
-                        radius = 4.5.dp.toPx(),
-                        center = Offset(x, 13.dp.toPx()),
-                    )
-                    drawCircle(
-                        color = TropicalWhite,
-                        radius = 2.2.dp.toPx(),
-                        center = Offset(x, 13.dp.toPx()),
-                    )
+                    val pillWidthDp = 64.dp
+                    val pillWidthPx = with(density) { pillWidthDp.toPx() }
+                    val pillOffsetX = (playheadX - pillWidthPx / 2f)
+                        .coerceIn(0f, (trackWidthPx - pillWidthPx).coerceAtLeast(0f))
+                        .roundToInt()
+
+                    // Vertical playhead needle from top of ruler straight down across every layer
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        drawLine(
+                            color = palette.inkBlack,
+                            start = Offset(playheadX, 0f),
+                            end = Offset(playheadX, size.height),
+                            strokeWidth = 3.5.dp.toPx(),
+                        )
+                        drawLine(
+                            color = TropicalWhite,
+                            start = Offset(playheadX, 0f),
+                            end = Offset(playheadX, size.height),
+                            strokeWidth = 1.8.dp.toPx(),
+                        )
+                    }
+
+                    // Floating Alight-Motion Style Timecode Pill ("00:00:25") riding the playhead
+                    val timecodeShape = RoundedCornerShape(5.dp)
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(x = pillOffsetX, y = with(density) { 15.dp.toPx() }.roundToInt()) }
+                            .width(pillWidthDp)
+                            .height(19.dp)
+                            .hard2dShadow(timecodeShape, palette.inkBlack, 1.5.dp, 1.5.dp)
+                            .clip(timecodeShape)
+                            .background(palette.graphicElevated)
+                            .border(1.2.dp, palette.glassDarkBorder, timecodeShape)
+                            .testTag("timeline_time_readout"),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = formatTimecode(positionMs),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.4.sp,
+                            ),
+                            color = TropicalWhite,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }

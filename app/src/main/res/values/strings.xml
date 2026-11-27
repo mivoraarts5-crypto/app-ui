@@ -65,4 +65,21 @@
     <string name="layer_short_fmt">L%1$d</string>
     <string name="time_ruler_desc">Music time ruler</string>
     <string name="music_layer_desc">Music timeline layer</string>
+    <string name="toggle_wallpaper_picker_desc">Change background wallpaper</string>
+    <string name="wallpaper_picker_title">Wallpapers</string>
+    <string name="wallpaper_presets_count_fmt">%1$d styles</string>
+    <string name="close_wallpaper_picker_desc">Close wallpaper picker</string>
+    <string name="pick_wallpaper_photo">Photo</string>
+    <string name="pick_wallpaper_photo_desc">Pick wallpaper from gallery</string>
+    <string name="wallpaper_selected_fmt">Applied %1$s wallpaper</string>
+    <string name="wallpaper_tropical">Tropical</string>
+    <string name="wallpaper_acid_liquid">Acid Lime</string>
+    <string name="wallpaper_crimson_signal">Bauhaus</string>
+    <string name="wallpaper_midnight_dune">Night Dune</string>
+    <string name="wallpaper_mono_grid">Mono Grid</string>
+    <string name="wallpaper_peach_horizon">Peach Sun</string>
+    <string name="wallpaper_mint_orbit">Mint Orbit</string>
+    <string name="wallpaper_custom_photo">Gallery</string>
+    <string name="toggle_layer_visibility_desc">Toggle layer visibility</string>
+    <string name="layer_options_desc">Layer options</string>
 </resources>

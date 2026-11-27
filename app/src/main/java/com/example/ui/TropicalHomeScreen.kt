@@ -3,6 +3,7 @@ package com.example.ui
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -57,10 +58,10 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ripple
@@ -74,7 +75,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -103,7 +103,9 @@ import com.example.ui.components.MusicTimelinePanel
 import com.example.ui.components.MusicTrack
 import com.example.ui.components.SearchPersonGlyph
 import com.example.ui.components.TropicalBackground
+import com.example.ui.components.WallpaperPickerTray
 import com.example.ui.theme.LocalTropicalPalette
+import com.example.ui.theme.hard2dShadow
 import kotlin.math.abs
 
 private fun <T> colorOsSpring() = spring<T>(
@@ -123,6 +125,14 @@ fun TropicalHomeScreen(
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
             viewModel.addDeviceAudioUris(uris)
+        }
+    }
+
+    val wallpaperPhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.setCustomWallpaperUri(uri)
         }
     }
 
@@ -152,6 +162,14 @@ fun TropicalHomeScreen(
         onSelectCanvasRatio = viewModel::selectCanvasRatio,
         onToggleCanvasToolbar = viewModel::toggleCanvasToolbar,
         onToggleDockVisibility = viewModel::toggleDockVisibility,
+        onToggleWallpaperPicker = viewModel::toggleWallpaperPicker,
+        onCloseWallpaperPicker = viewModel::closeWallpaperPicker,
+        onSelectWallpaperPreset = viewModel::selectWallpaperPreset,
+        onPickCustomWallpaper = {
+            wallpaperPhotoPickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
         onSelectMusicTrack = viewModel::addMusicToCanvas,
         onPickMusicFromDevice = { audioPickerLauncher.launch(arrayOf("audio/*")) },
         onCloseMusicPicker = viewModel::closeMusicPicker,
@@ -160,6 +178,7 @@ fun TropicalHomeScreen(
         onSeekMusicToMs = viewModel::seekMusicToMs,
         onRemoveMusicLayer = viewModel::removeMusicLayer,
         onMoveMusicLayerSticker = viewModel::moveMusicLayerSticker,
+        onToggleMusicLayerVisibility = viewModel::toggleMusicLayerVisibility,
         onUndoStroke = viewModel::undoStroke,
         onClearStrokes = viewModel::clearStrokes,
         modifier = modifier,
@@ -193,6 +212,10 @@ fun TropicalHomeContent(
     onSelectCanvasRatio: (CanvasRatio) -> Unit,
     onToggleCanvasToolbar: () -> Unit,
     onToggleDockVisibility: () -> Unit,
+    onToggleWallpaperPicker: () -> Unit,
+    onCloseWallpaperPicker: () -> Unit,
+    onSelectWallpaperPreset: (WallpaperPreset) -> Unit,
+    onPickCustomWallpaper: () -> Unit,
     onSelectMusicTrack: (MusicTrack) -> Unit,
     onPickMusicFromDevice: () -> Unit,
     onCloseMusicPicker: () -> Unit,
@@ -201,6 +224,7 @@ fun TropicalHomeContent(
     onSeekMusicToMs: (Long) -> Unit,
     onRemoveMusicLayer: (Long) -> Unit,
     onMoveMusicLayerSticker: (Long, Offset) -> Unit,
+    onToggleMusicLayerVisibility: (Long) -> Unit,
     onUndoStroke: () -> Unit,
     onClearStrokes: () -> Unit,
     modifier: Modifier = Modifier,
@@ -217,6 +241,8 @@ fun TropicalHomeContent(
             .background(MaterialTheme.colorScheme.background),
     ) {
         TropicalBackground(
+            wallpaperPreset = uiState.wallpaperPreset,
+            customWallpaperBitmap = uiState.customWallpaperBitmap,
             isSunMorphed = uiState.isSunMorphed,
             isWaveMorphed = uiState.isWaveMorphed,
             isIslandMorphed = uiState.isIslandMorphed,
@@ -273,28 +299,36 @@ fun TropicalHomeContent(
                             animationSpec = colorOsSpring(),
                             label = "plus_btn_rot",
                         )
-                        Surface(
-                            shape = CircleShape,
-                            color = plusBg,
-                            shadowElevation = 4.dp,
+                        Box(
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
-                                .size(34.dp)
-                                .border(1.dp, palette.glassDarkBorder, CircleShape)
+                                .size(36.dp)
+                                .padding(end = 2.dp, bottom = 2.dp)
+                                .hard2dShadow(
+                                    shape = CircleShape,
+                                    shadowColor = if (uiState.isDockVisible) palette.acidLime else palette.hardShadowDark,
+                                    offsetX = 2.dp,
+                                    offsetY = 2.dp,
+                                )
                                 .clip(CircleShape)
+                                .background(plusBg)
+                                .border(
+                                    width = 1.5.dp,
+                                    color = if (uiState.isDockVisible) MaterialTheme.colorScheme.onPrimary else palette.glassDarkBorder,
+                                    shape = CircleShape,
+                                )
                                 .clickable(role = Role.Button, onClick = onToggleDockVisibility)
                                 .testTag("header_plus_button"),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Add,
-                                    contentDescription = dockToggleDesc,
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .rotate(plusRotation),
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = dockToggleDesc,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .rotate(plusRotation),
+                            )
                         }
 
                         val settingsDesc = stringResource(R.string.toggle_canvas_toolbar_desc)
@@ -308,28 +342,72 @@ fun TropicalHomeContent(
                             animationSpec = colorOsSpring(),
                             label = "settings_btn_rot",
                         )
-                        Surface(
-                            shape = CircleShape,
-                            color = settingsBg,
-                            shadowElevation = 4.dp,
+                        Box(
                             modifier = Modifier
                                 .minimumInteractiveComponentSize()
-                                .size(34.dp)
-                                .border(1.dp, palette.glassDarkBorder, CircleShape)
+                                .size(36.dp)
+                                .padding(end = 2.dp, bottom = 2.dp)
+                                .hard2dShadow(
+                                    shape = CircleShape,
+                                    shadowColor = if (uiState.isCanvasToolbarVisible) palette.acidLime else palette.hardShadowDark,
+                                    offsetX = 2.dp,
+                                    offsetY = 2.dp,
+                                )
                                 .clip(CircleShape)
+                                .background(settingsBg)
+                                .border(
+                                    width = 1.5.dp,
+                                    color = if (uiState.isCanvasToolbarVisible) MaterialTheme.colorScheme.onPrimary else palette.glassDarkBorder,
+                                    shape = CircleShape,
+                                )
                                 .clickable(role = Role.Button, onClick = onToggleCanvasToolbar)
                                 .testTag("header_settings_button"),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Settings,
-                                    contentDescription = settingsDesc,
-                                    tint = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier
-                                        .size(18.dp)
-                                        .rotate(settingsRotation),
+                            Icon(
+                                imageVector = Icons.Rounded.Settings,
+                                contentDescription = settingsDesc,
+                                tint = if (uiState.isCanvasToolbarVisible) palette.inkBlack else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .rotate(settingsRotation),
+                            )
+                        }
+
+                        val wallpaperDesc = stringResource(R.string.toggle_wallpaper_picker_desc)
+                        val wallpaperBg by animateColorAsState(
+                            targetValue = if (uiState.isWallpaperPickerVisible) palette.acidLime else palette.glassDarkSurface,
+                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                            label = "wallpaper_btn_bg",
+                        )
+                        Box(
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .size(36.dp)
+                                .padding(end = 2.dp, bottom = 2.dp)
+                                .hard2dShadow(
+                                    shape = CircleShape,
+                                    shadowColor = if (uiState.isWallpaperPickerVisible) palette.sunOrange else palette.hardShadowDark,
+                                    offsetX = 2.dp,
+                                    offsetY = 2.dp,
                                 )
-                            }
+                                .clip(CircleShape)
+                                .background(wallpaperBg)
+                                .border(
+                                    width = 1.5.dp,
+                                    color = if (uiState.isWallpaperPickerVisible) MaterialTheme.colorScheme.onPrimary else palette.glassDarkBorder,
+                                    shape = CircleShape,
+                                )
+                                .clickable(role = Role.Button, onClick = onToggleWallpaperPicker)
+                                .testTag("header_wallpaper_button"),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Wallpaper,
+                                contentDescription = wallpaperDesc,
+                                tint = if (uiState.isWallpaperPickerVisible) palette.inkBlack else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(17.dp),
+                            )
                         }
 
                         AnimatedVisibility(
@@ -341,26 +419,30 @@ fun TropicalHomeContent(
                             exit = fadeOut(tween(160)) + scaleOut(targetScale = 0.75f),
                         ) {
                             val resetDesc = stringResource(R.string.reset_morphs_desc)
-                            Surface(
-                                shape = CircleShape,
-                                color = palette.glassDarkSurface,
-                                shadowElevation = 4.dp,
+                            Box(
                                 modifier = Modifier
                                     .minimumInteractiveComponentSize()
-                                    .size(34.dp)
-                                    .border(1.dp, palette.glassDarkBorder, CircleShape)
+                                    .size(36.dp)
+                                    .padding(end = 2.dp, bottom = 2.dp)
+                                    .hard2dShadow(
+                                        shape = CircleShape,
+                                        shadowColor = palette.hardShadowDark,
+                                        offsetX = 2.dp,
+                                        offsetY = 2.dp,
+                                    )
                                     .clip(CircleShape)
+                                    .background(palette.glassDarkSurface)
+                                    .border(1.5.dp, palette.glassDarkBorder, CircleShape)
                                     .clickable(role = Role.Button, onClick = onResetAll)
                                     .testTag("reset_morphs_button"),
+                                contentAlignment = Alignment.Center,
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Refresh,
-                                        contentDescription = resetDesc,
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Rounded.Refresh,
+                                    contentDescription = resetDesc,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(18.dp),
+                                )
                             }
                         }
                     }
@@ -459,6 +541,7 @@ fun TropicalHomeContent(
                         onTogglePlay = onToggleMusicPlay,
                         onSeekToMs = onSeekMusicToMs,
                         onRemoveLayer = onRemoveMusicLayer,
+                        onToggleLayerVisibility = onToggleMusicLayerVisibility,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp, vertical = 4.dp),
@@ -519,6 +602,30 @@ fun TropicalHomeContent(
                     )
                 }
 
+                // --- MINIMAL AESTHETIC 2D WALLPAPER PICKER TRAY ---
+                AnimatedVisibility(
+                    visible = uiState.isWallpaperPickerVisible,
+                    enter = fadeIn(tween(200)) + expandVertically(
+                        expandFrom = Alignment.Bottom,
+                        animationSpec = colorOsSpring(),
+                    ),
+                    exit = fadeOut(tween(150)) + shrinkVertically(
+                        shrinkTowards = Alignment.Bottom,
+                        animationSpec = tween(180),
+                    ),
+                ) {
+                    WallpaperPickerTray(
+                        selectedPreset = uiState.wallpaperPreset,
+                        customWallpaperBitmap = uiState.customWallpaperBitmap,
+                        onSelectPreset = onSelectWallpaperPreset,
+                        onPickCustomPhoto = onPickCustomWallpaper,
+                        onClose = onCloseWallpaperPicker,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
+                }
+
                 // --- BOTTOM TIER: Search Widget (Bottom-Left) + Date Greeting (Bottom-Right) ---
                 Box(
                     modifier = Modifier
@@ -566,16 +673,27 @@ fun TropicalHomeContent(
                             stringResource(R.string.searching_for_fmt, feedback.query)
                         is FeedbackMessage.AddedMusicToCanvas ->
                             stringResource(R.string.added_music_to_canvas_fmt, feedback.trackTitle)
+                        is FeedbackMessage.ChangedWallpaper ->
+                            stringResource(R.string.wallpaper_selected_fmt, stringResource(feedback.nameRes))
                     }
-                    Surface(
-                        color = palette.toastBackground,
-                        shape = RoundedCornerShape(999.dp),
-                        shadowElevation = 6.dp,
-                        modifier = Modifier.testTag("feedback_toast"),
+                    val toastShape = RoundedCornerShape(12.dp)
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 3.dp, bottom = 3.dp)
+                            .hard2dShadow(
+                                shape = toastShape,
+                                shadowColor = palette.acidLime,
+                                offsetX = 3.dp,
+                                offsetY = 3.dp,
+                            )
+                            .clip(toastShape)
+                            .background(palette.toastBackground)
+                            .border(1.5.dp, MaterialTheme.colorScheme.onPrimary, toastShape)
+                            .testTag("feedback_toast"),
                     ) {
                         Text(
                             text = msg,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
@@ -647,7 +765,7 @@ private fun MorphingClockWidget(
         label = "clock_bg",
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isMorphed) palette.glassWhiteBorder else Color.Transparent,
+        targetValue = if (isMorphed) MaterialTheme.colorScheme.onPrimary else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "clock_border",
     )
@@ -668,9 +786,21 @@ private fun MorphingClockWidget(
         modifier = modifier
             .offset(x = offsetX, y = offsetY)
             .scale(scale.coerceAtLeast(0.5f))
+            .then(
+                if (isMorphed) {
+                    Modifier.hard2dShadow(
+                        shape = shape,
+                        shadowColor = palette.inkBlack,
+                        offsetX = 3.dp,
+                        offsetY = 3.dp,
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .clip(shape)
             .background(containerColor)
-            .border(width = if (isMorphed) 1.dp else 0.dp, color = borderColor, shape = shape)
+            .border(width = if (isMorphed) 1.5.dp else 0.dp, color = borderColor, shape = shape)
             .minimumInteractiveComponentSize()
             .clickable(
                 interactionSource = interactionSource,
@@ -693,9 +823,9 @@ private fun MorphingClockWidget(
                     fontSize = if (isCompactWidth) 40.sp else 48.sp,
                     lineHeight = if (isCompactWidth) 42.sp else 50.sp,
                     shadow = Shadow(
-                        color = Color.Black.copy(alpha = 0.08f),
-                        offset = Offset(0f, 3f),
-                        blurRadius = 10f,
+                        color = palette.inkBlack.copy(alpha = 0.22f),
+                        offset = Offset(2.5f, 2.5f),
+                        blurRadius = 0f,
                     ),
                 ),
                 color = MaterialTheme.colorScheme.onPrimary,
@@ -779,12 +909,12 @@ private fun MorphingSearchWidget(
         label = "search_capsule_corner",
     )
     val capsuleBg by animateColorAsState(
-        targetValue = if (isExpanded) palette.islandCharcoal.copy(alpha = 0.96f) else palette.glassDarkSurface,
+        targetValue = if (isExpanded) palette.graphicElevated else palette.glassDarkSurface,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "search_capsule_bg",
     )
     val capsuleBorder by animateColorAsState(
-        targetValue = palette.glassDarkBorder,
+        targetValue = if (isExpanded) palette.acidLime else palette.graphicLightBorder,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "search_capsule_border",
     )
@@ -794,19 +924,20 @@ private fun MorphingSearchWidget(
     Box(
         modifier = modifier
             .offset(y = offsetY)
+            .padding(end = 3.dp, bottom = 3.dp)
             .size(
                 width = capsuleWidth.coerceAtLeast(48.dp),
                 height = capsuleHeight.coerceAtLeast(48.dp),
             )
-            .shadow(
-                elevation = if (isExpanded) 14.dp else 8.dp,
+            .hard2dShadow(
                 shape = capsuleShape,
-                ambientColor = if (isExpanded) Color.Black.copy(alpha = 0.35f) else palette.searchButtonBlue,
-                spotColor = if (isExpanded) Color.Black.copy(alpha = 0.35f) else palette.searchButtonBlue,
+                shadowColor = if (isExpanded) palette.acidLime else palette.searchButtonBlue,
+                offsetX = 3.5.dp,
+                offsetY = 3.5.dp,
             )
             .clip(capsuleShape)
             .background(capsuleBg)
-            .border(width = 1.dp, color = capsuleBorder, shape = capsuleShape),
+            .border(width = 1.6.dp, color = capsuleBorder, shape = capsuleShape),
         contentAlignment = Alignment.CenterStart,
     ) {
         if (!isExpanded) {
@@ -829,7 +960,8 @@ private fun MorphingSearchWidget(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(palette.searchButtonBlue),
+                        .background(palette.searchButtonBlue)
+                        .border(1.4.dp, palette.inkBlack, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     SearchPersonGlyph(modifier = Modifier.size(19.dp))
@@ -837,9 +969,9 @@ private fun MorphingSearchWidget(
                 Box(
                     modifier = Modifier
                         .width(12.dp)
-                        .height(2.dp)
+                        .height(3.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White.copy(alpha = 0.5f)),
+                        .background(palette.acidLime),
                 )
                 Text(
                     text = searchHereText,
@@ -866,6 +998,7 @@ private fun MorphingSearchWidget(
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(palette.searchButtonBlue)
+                        .border(1.4.dp, palette.inkBlack, CircleShape)
                         .clickable(
                             role = Role.Button,
                             onClick = onOpenFullSearch,
@@ -989,7 +1122,7 @@ private fun MorphingDateWidget(
         label = "date_bg",
     )
     val cardBorder by animateColorAsState(
-        targetValue = if (isMorphed) palette.glassDarkBorder else Color.Transparent,
+        targetValue = if (isMorphed) palette.graphicLightBorder else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "date_border",
     )
@@ -1005,7 +1138,7 @@ private fun MorphingDateWidget(
         label = "bottom_dash_w",
     )
     val dashCorner by animateDpAsState(
-        targetValue = if (isMorphed) 6.dp else 0.dp,
+        targetValue = if (isMorphed) 3.dp else 2.dp,
         animationSpec = colorOsSpring(),
         label = "dash_corner",
     )
@@ -1023,9 +1156,21 @@ private fun MorphingDateWidget(
         modifier = modifier
             .offset(x = offsetX, y = offsetY)
             .scale(scale.coerceAtLeast(0.5f))
+            .then(
+                if (isMorphed) {
+                    Modifier.hard2dShadow(
+                        shape = cardShape,
+                        shadowColor = palette.dashAmber,
+                        offsetX = 3.5.dp,
+                        offsetY = 3.5.dp,
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .clip(cardShape)
             .background(cardBg)
-            .border(width = if (isMorphed) 1.dp else 0.dp, color = cardBorder, shape = cardShape)
+            .border(width = if (isMorphed) 1.6.dp else 0.dp, color = cardBorder, shape = cardShape)
             .minimumInteractiveComponentSize()
             .clickable(
                 interactionSource = interactionSource,
@@ -1105,17 +1250,23 @@ private fun TimeModePill(
     val toggleDesc = stringResource(R.string.toggle_time_mode_desc)
 
     val pillShape = RoundedCornerShape(999.dp)
-    Surface(
-        shape = pillShape,
-        color = palette.glassDarkSurface,
-        shadowElevation = 4.dp,
+    Box(
         modifier = modifier
-            .border(1.dp, palette.glassDarkBorder, pillShape)
+            .padding(end = 2.dp, bottom = 2.dp)
+            .hard2dShadow(
+                shape = pillShape,
+                shadowColor = palette.hardShadowDark,
+                offsetX = 2.5.dp,
+                offsetY = 2.5.dp,
+            )
+            .clip(pillShape)
+            .background(palette.glassDarkSurface)
+            .border(1.5.dp, palette.glassDarkBorder, pillShape)
             .semantics { contentDescription = toggleDesc },
     ) {
         Row(
             modifier = Modifier.padding(3.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ModePillItem(
@@ -1144,27 +1295,32 @@ private fun ModePillItem(
     onClick: () -> Unit,
     testTag: String,
 ) {
+    val palette = LocalTropicalPalette.current
     val bgColor by animateColorAsState(
         targetValue = if (selected) activeColor else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "mode_pill_bg",
     )
     val textColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+        targetValue = if (selected) palette.inkBlack else MaterialTheme.colorScheme.onSurface,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "mode_pill_text",
     )
     val scale by animateFloatAsState(
-        targetValue = if (selected) 1.03f else 0.96f,
+        targetValue = if (selected) 1.02f else 0.96f,
         animationSpec = colorOsSpring(),
         label = "mode_pill_scale",
     )
 
+    val itemShape = RoundedCornerShape(999.dp)
     Box(
         modifier = Modifier
             .scale(scale)
-            .clip(RoundedCornerShape(999.dp))
+            .clip(itemShape)
             .background(bgColor)
+            .then(
+                if (selected) Modifier.border(1.2.dp, palette.inkBlack, itemShape) else Modifier,
+            )
             .clickable(role = Role.Tab, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .testTag(testTag),
@@ -1269,10 +1425,17 @@ private fun SearchOverlay(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(34.dp)
+                            .padding(end = 2.dp, bottom = 2.dp)
+                            .hard2dShadow(
+                                shape = CircleShape,
+                                shadowColor = palette.acidLime,
+                                offsetX = 2.dp,
+                                offsetY = 2.dp,
+                            )
                             .clip(CircleShape)
                             .background(palette.islandCharcoal)
-                            .border(1.dp, palette.glassDarkBorder, CircleShape),
+                            .border(1.5.dp, MaterialTheme.colorScheme.onPrimary, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -1290,7 +1453,7 @@ private fun SearchOverlay(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.dp)
-                    .background(Color.White.copy(alpha = 0.75f)),
+                    .background(palette.acidLime),
             )
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -1311,12 +1474,20 @@ private fun SearchOverlay(
             ) {
                 items(matchingApps, key = { it.name }) { app ->
                     val appName = stringResource(app.labelRes)
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                    val resultShape = RoundedCornerShape(12.dp)
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.small)
+                            .padding(end = 2.dp, bottom = 2.dp)
+                            .hard2dShadow(
+                                shape = resultShape,
+                                shadowColor = palette.hardShadowDeep,
+                                offsetX = 2.5.dp,
+                                offsetY = 2.5.dp,
+                            )
+                            .clip(resultShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.4.dp, palette.glassDarkBorder, resultShape)
                             .clickable(role = Role.Button) { onAppClick(app) }
                             .testTag("search_result_${app.name.lowercase()}"),
                     ) {

@@ -76,6 +76,7 @@ import com.example.ui.theme.IconMusicRed
 import com.example.ui.theme.IconWhatsAppGreen
 import com.example.ui.theme.LocalTropicalPalette
 import com.example.ui.theme.TropicalWhite
+import com.example.ui.theme.hard2dShadow
 
 @Composable
 fun FreehandCanvasCard(
@@ -154,7 +155,7 @@ fun FreehandCanvasCard(
     val canvasDesc = stringResource(R.string.canvas_area_desc)
     val canvasHint = stringResource(R.string.canvas_hint)
 
-    // Pure Freehand Canvas — NO toolbar inside!
+    // Pure Freehand Canvas — Crisp Aesthetic 2D Artboard with hard offset shadow
     Box(
         modifier = modifier
             .size(
@@ -162,17 +163,18 @@ fun FreehandCanvasCard(
                 height = animH.coerceAtLeast(140.dp),
             )
             .scale(cardScale.coerceAtLeast(0.9f))
-            .shadow(
-                elevation = 16.dp,
+            .padding(end = 4.dp, bottom = 4.dp)
+            .hard2dShadow(
                 shape = cardShape,
-                ambientColor = Color.Black.copy(alpha = 0.14f),
-                spotColor = Color.Black.copy(alpha = 0.14f),
+                shadowColor = if (isDarkCanvas) palette.hardShadowDark else palette.waveBlue.copy(alpha = 0.85f),
+                offsetX = 5.dp,
+                offsetY = 5.dp,
             )
             .clip(cardShape)
             .background(animatedCanvasBg)
             .border(
-                width = 1.5.dp,
-                color = if (isDarkCanvas) palette.glassDarkBorder else palette.glassWhiteBorder,
+                width = 2.dp,
+                color = if (isDarkCanvas) palette.graphicLightBorder else palette.inkBlack,
                 shape = cardShape,
             )
             .testTag("freehand_canvas_card")
@@ -267,7 +269,7 @@ fun FreehandCanvasCard(
         val animWPx = with(density) { animW.coerceAtLeast(140.dp).toPx() }.coerceAtLeast(1f)
         val animHPx = with(density) { animH.coerceAtLeast(140.dp).toPx() }.coerceAtLeast(1f)
 
-        musicLayers.forEach { layer ->
+        musicLayers.filter { it.isVisible }.forEach { layer ->
             key(layer.layerId) {
                 val isLayerPlaying = isMusicPlaying && (layer.layerId == activeLayerId)
                 Box(
@@ -340,18 +342,25 @@ fun ExternalCanvasToolbar(
     val bgSwatchDesc = stringResource(R.string.canvas_bg_swatch_desc)
     val ratioDesc = stringResource(R.string.canvas_ratio_desc)
 
-    val toolbarShape = RoundedCornerShape(20.dp)
-    Surface(
-        color = palette.glassDarkSurface,
-        shape = toolbarShape,
-        shadowElevation = 6.dp,
-        modifier = modifier.border(1.dp, palette.glassDarkBorder, toolbarShape),
+    val toolbarShape = RoundedCornerShape(18.dp)
+    Box(
+        modifier = modifier
+            .padding(end = 3.dp, bottom = 3.dp)
+            .hard2dShadow(
+                shape = toolbarShape,
+                shadowColor = palette.hardShadowDark,
+                offsetX = 3.5.dp,
+                offsetY = 3.5.dp,
+            )
+            .clip(toolbarShape)
+            .background(palette.glassDarkSurface)
+            .border(1.6.dp, palette.glassDarkBorder, toolbarShape),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             // Row 1: Ratios (1:1, 4:3, 3:4, 9:16, 16:9) + Canvas Background Colors
             Row(
@@ -363,22 +372,28 @@ fun ExternalCanvasToolbar(
             ) {
                 CanvasRatio.entries.forEach { ratio ->
                     val selected = ratio == selectedCanvasRatio
+                    val chipShape = RoundedCornerShape(8.dp)
                     val chipBg by animateColorAsState(
-                        targetValue = if (selected) palette.sunOrange else Color.Transparent,
+                        targetValue = if (selected) palette.acidLime else palette.graphicElevated,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                         label = "ratio_chip_bg",
                     )
                     val chipTextColor by animateColorAsState(
-                        targetValue = if (selected) TropicalWhite else palette.dateWhite,
+                        targetValue = if (selected) palette.inkBlack else palette.dateWhite,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                         label = "ratio_chip_text",
                     )
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
+                            .clip(chipShape)
                             .background(chipBg)
+                            .border(
+                                width = 1.1.dp,
+                                color = if (selected) palette.inkBlack else palette.glassDarkBorder,
+                                shape = chipShape,
+                            )
                             .clickable(role = Role.Tab) { onSelectCanvasRatio(ratio) }
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                            .padding(horizontal = 8.dp, vertical = 2.5.dp)
                             .semantics { contentDescription = ratioDesc }
                             .testTag("canvas_ratio_${ratio.name.lowercase()}"),
                         contentAlignment = Alignment.Center,
@@ -387,7 +402,7 @@ fun ExternalCanvasToolbar(
                             text = stringResource(ratio.labelRes),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 10.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                                fontWeight = FontWeight.ExtraBold,
                             ),
                             color = chipTextColor,
                         )
