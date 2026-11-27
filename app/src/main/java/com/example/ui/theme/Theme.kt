@@ -58,6 +58,14 @@ data class TropicalPalette(
     val bauhausTeal: Color = WallpaperBauhausTeal,
     val monoGridLine: Color = WallpaperMonoGridLine,
     val monoArc: Color = WallpaperMonoArc,
+    val timelinePanelBg: Color = TimelinePanelBg,
+    val timelinePillBg: Color = TimelinePillBg,
+    val timelinePillSelectedBg: Color = TimelinePillSelectedBg,
+    val timelineTimecodeBg: Color = TimelineTimecodeBg,
+    val timelineTrackPurple: Color = TimelineTrackPurple,
+    val timelineTrackAmber: Color = TimelineTrackAmber,
+    val timelineTrackBlue: Color = TimelineTrackBlue,
+    val timelineTickColor: Color = TimelineTickColor,
 )
 
 val LocalTropicalPalette = staticCompositionLocalOf { TropicalPalette() }

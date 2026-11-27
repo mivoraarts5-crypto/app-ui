@@ -128,11 +128,19 @@ fun TropicalHomeScreen(
         }
     }
 
-    val wallpaperPhotoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri: Uri? ->
-        if (uri != null) {
-            viewModel.setCustomWallpaperUri(uri)
+    val wallpaperGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 8),
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.addCustomWallpaperUris(uris)
+        }
+    }
+
+    val wallpaperDeviceFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.addCustomWallpaperUris(uris)
         }
     }
 
@@ -165,10 +173,15 @@ fun TropicalHomeScreen(
         onToggleWallpaperPicker = viewModel::toggleWallpaperPicker,
         onCloseWallpaperPicker = viewModel::closeWallpaperPicker,
         onSelectWallpaperPreset = viewModel::selectWallpaperPreset,
-        onPickCustomWallpaper = {
-            wallpaperPhotoPickerLauncher.launch(
+        onSelectUploadedWallpaper = viewModel::selectUploadedWallpaper,
+        onRemoveUploadedWallpaper = viewModel::removeUploadedWallpaper,
+        onPickWallpaperFromGallery = {
+            wallpaperGalleryLauncher.launch(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
             )
+        },
+        onPickWallpaperFromDeviceFiles = {
+            wallpaperDeviceFileLauncher.launch(arrayOf("image/*"))
         },
         onSelectMusicTrack = viewModel::addMusicToCanvas,
         onPickMusicFromDevice = { audioPickerLauncher.launch(arrayOf("audio/*")) },
@@ -215,7 +228,10 @@ fun TropicalHomeContent(
     onToggleWallpaperPicker: () -> Unit,
     onCloseWallpaperPicker: () -> Unit,
     onSelectWallpaperPreset: (WallpaperPreset) -> Unit,
-    onPickCustomWallpaper: () -> Unit,
+    onSelectUploadedWallpaper: (String) -> Unit,
+    onRemoveUploadedWallpaper: (String) -> Unit,
+    onPickWallpaperFromGallery: () -> Unit,
+    onPickWallpaperFromDeviceFiles: () -> Unit,
     onSelectMusicTrack: (MusicTrack) -> Unit,
     onPickMusicFromDevice: () -> Unit,
     onCloseMusicPicker: () -> Unit,
@@ -242,7 +258,7 @@ fun TropicalHomeContent(
     ) {
         TropicalBackground(
             wallpaperPreset = uiState.wallpaperPreset,
-            customWallpaperBitmap = uiState.customWallpaperBitmap,
+            customWallpaperBitmap = uiState.activeCustomWallpaperBitmap,
             isSunMorphed = uiState.isSunMorphed,
             isWaveMorphed = uiState.isWaveMorphed,
             isIslandMorphed = uiState.isIslandMorphed,
@@ -544,7 +560,7 @@ fun TropicalHomeContent(
                         onToggleLayerVisibility = onToggleMusicLayerVisibility,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                            .padding(vertical = 4.dp),
                     )
                 }
 
@@ -616,9 +632,13 @@ fun TropicalHomeContent(
                 ) {
                     WallpaperPickerTray(
                         selectedPreset = uiState.wallpaperPreset,
-                        customWallpaperBitmap = uiState.customWallpaperBitmap,
+                        uploadedWallpapers = uiState.uploadedWallpapers,
+                        activeUploadedWallpaperId = uiState.activeUploadedWallpaperId,
                         onSelectPreset = onSelectWallpaperPreset,
-                        onPickCustomPhoto = onPickCustomWallpaper,
+                        onSelectUploadedWallpaper = onSelectUploadedWallpaper,
+                        onRemoveUploadedWallpaper = onRemoveUploadedWallpaper,
+                        onPickFromGallery = onPickWallpaperFromGallery,
+                        onPickFromDeviceFiles = onPickWallpaperFromDeviceFiles,
                         onClose = onCloseWallpaperPicker,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -675,6 +695,8 @@ fun TropicalHomeContent(
                             stringResource(R.string.added_music_to_canvas_fmt, feedback.trackTitle)
                         is FeedbackMessage.ChangedWallpaper ->
                             stringResource(R.string.wallpaper_selected_fmt, stringResource(feedback.nameRes))
+                        is FeedbackMessage.UploadedWallpapers ->
+                            stringResource(R.string.uploaded_wallpaper_toast_fmt, feedback.count)
                     }
                     val toastShape = RoundedCornerShape(12.dp)
                     Box(

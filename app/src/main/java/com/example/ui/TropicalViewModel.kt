@@ -77,6 +77,7 @@ sealed interface FeedbackMessage {
     data class SearchingQuery(val query: String) : FeedbackMessage
     data class AddedMusicToCanvas(val trackTitle: String) : FeedbackMessage
     data class ChangedWallpaper(@param:StringRes val nameRes: Int) : FeedbackMessage
+    data class UploadedWallpapers(val count: Int) : FeedbackMessage
 }
 
 data class TropicalUiState(
@@ -107,7 +108,8 @@ data class TropicalUiState(
     val isDockVisible: Boolean = false,
     val isWallpaperPickerVisible: Boolean = false,
     val wallpaperPreset: WallpaperPreset = WallpaperPreset.TROPICAL,
-    val customWallpaperBitmap: ImageBitmap? = null,
+    val uploadedWallpapers: List<UploadedWallpaper> = emptyList(),
+    val activeUploadedWallpaperId: String? = null,
     val musicTracks: List<MusicTrack> = DefaultMusicLibrary,
     val isMusicPickerVisible: Boolean = false,
     val musicLayers: List<MusicLayer> = emptyList(),
@@ -115,6 +117,10 @@ data class TropicalUiState(
     val isMusicPlaying: Boolean = false,
     val musicPositionMs: Long = 0L,
 ) {
+    val activeCustomWallpaperBitmap: ImageBitmap?
+        get() = uploadedWallpapers.firstOrNull { it.id == activeUploadedWallpaperId }?.bitmap
+            ?: uploadedWallpapers.firstOrNull()?.bitmap
+
     val activeMusicLayer: MusicLayer?
         get() = musicLayers.firstOrNull { it.layerId == activeLayerId } ?: musicLayers.firstOrNull()
 
@@ -164,12 +170,15 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
 
     private fun restoreSavedWallpaper() {
         val savedKey = prefs.getString("wallpaper_preset", null)
+        val savedUploadedId = prefs.getString("active_uploaded_wallpaper_id", null)
         val preset = WallpaperPreset.fromStorageKey(savedKey)
         viewModelScope.launch {
-            val customBmp = withContext(Dispatchers.IO) {
-                loadPersistedCustomWallpaper(getApplication())
+            val uploaded = withContext(Dispatchers.IO) {
+                loadAllUploadedWallpapers(getApplication())
             }
-            val effectivePreset = if (preset == WallpaperPreset.CUSTOM_PHOTO && customBmp == null) {
+            val matchedId = uploaded.firstOrNull { it.id == savedUploadedId }?.id
+                ?: uploaded.firstOrNull()?.id
+            val effectivePreset = if (preset == WallpaperPreset.CUSTOM_PHOTO && uploaded.isEmpty()) {
                 WallpaperPreset.TROPICAL
             } else {
                 preset
@@ -177,7 +186,8 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
             _uiState.update {
                 it.copy(
                     wallpaperPreset = effectivePreset,
-                    customWallpaperBitmap = customBmp,
+                    uploadedWallpapers = uploaded,
+                    activeUploadedWallpaperId = matchedId,
                 )
             }
         }
@@ -331,7 +341,7 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun selectWallpaperPreset(preset: WallpaperPreset) {
-        if (preset == WallpaperPreset.CUSTOM_PHOTO && _uiState.value.customWallpaperBitmap == null) {
+        if (preset == WallpaperPreset.CUSTOM_PHOTO && _uiState.value.uploadedWallpapers.isEmpty()) {
             return
         }
         prefs.edit().putString("wallpaper_preset", preset.name).apply()
@@ -339,20 +349,73 @@ class TropicalViewModel(application: Application) : AndroidViewModel(application
         showFeedback(FeedbackMessage.ChangedWallpaper(preset.labelRes))
     }
 
-    fun setCustomWallpaperUri(uri: Uri) {
+    fun selectUploadedWallpaper(id: String) {
+        if (_uiState.value.uploadedWallpapers.none { it.id == id }) return
+        prefs.edit()
+            .putString("wallpaper_preset", WallpaperPreset.CUSTOM_PHOTO.name)
+            .putString("active_uploaded_wallpaper_id", id)
+            .apply()
+        _uiState.update {
+            it.copy(
+                wallpaperPreset = WallpaperPreset.CUSTOM_PHOTO,
+                activeUploadedWallpaperId = id,
+            )
+        }
+        showFeedback(FeedbackMessage.ChangedWallpaper(WallpaperPreset.CUSTOM_PHOTO.labelRes))
+    }
+
+    fun addCustomWallpaperUris(uris: List<Uri>) {
+        if (uris.isEmpty()) return
         val appContext = getApplication<Application>()
         viewModelScope.launch {
-            val loaded = withContext(Dispatchers.IO) {
-                persistAndLoadWallpaperUri(appContext, uri)
-            } ?: return@launch
-            prefs.edit().putString("wallpaper_preset", WallpaperPreset.CUSTOM_PHOTO.name).apply()
-            _uiState.update {
-                it.copy(
-                    customWallpaperBitmap = loaded,
+            val added = withContext(Dispatchers.IO) {
+                persistAndLoadWallpaperUris(appContext, uris)
+            }
+            if (added.isEmpty()) return@launch
+            val firstId = added.first().id
+            prefs.edit()
+                .putString("wallpaper_preset", WallpaperPreset.CUSTOM_PHOTO.name)
+                .putString("active_uploaded_wallpaper_id", firstId)
+                .apply()
+            _uiState.update { state ->
+                state.copy(
+                    uploadedWallpapers = added + state.uploadedWallpapers,
+                    activeUploadedWallpaperId = firstId,
                     wallpaperPreset = WallpaperPreset.CUSTOM_PHOTO,
                 )
             }
-            showFeedback(FeedbackMessage.ChangedWallpaper(WallpaperPreset.CUSTOM_PHOTO.labelRes))
+            showFeedback(FeedbackMessage.UploadedWallpapers(added.size))
+        }
+    }
+
+    fun removeUploadedWallpaper(id: String) {
+        val appContext = getApplication<Application>()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                deleteUploadedWallpaperFile(appContext, id)
+            }
+        }
+        _uiState.update { state ->
+            val remaining = state.uploadedWallpapers.filterNot { it.id == id }
+            val nextActiveId = when {
+                remaining.isEmpty() -> null
+                state.activeUploadedWallpaperId == id -> remaining.first().id
+                else -> state.activeUploadedWallpaperId
+            }
+            val nextPreset = if (state.wallpaperPreset == WallpaperPreset.CUSTOM_PHOTO && remaining.isEmpty()) {
+                WallpaperPreset.TROPICAL
+            } else {
+                state.wallpaperPreset
+            }
+            prefs.edit()
+                .putString("wallpaper_preset", nextPreset.name)
+                .putString("active_uploaded_wallpaper_id", nextActiveId)
+                .apply()
+            state.copy(
+                uploadedWallpapers = remaining,
+                activeUploadedWallpaperId = nextActiveId,
+                wallpaperPreset = nextPreset,
+            )
         }
     }
 

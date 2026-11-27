@@ -42,50 +42,97 @@ enum class WallpaperPreset(
     }
 }
 
-private const val CUSTOM_WALLPAPER_FILENAME = "custom_wallpaper_bg.bin"
+data class UploadedWallpaper(
+    val id: String,
+    val bitmap: ImageBitmap,
+)
+
+private const val UPLOADED_WALLPAPERS_DIR = "uploaded_wallpapers"
+private const val LEGACY_WALLPAPER_FILENAME = "custom_wallpaper_bg.bin"
 private const val MAX_WALLPAPER_EDGE_PX = 1440
 
-fun persistAndLoadWallpaperUri(context: Context, uri: Uri): ImageBitmap? {
-    val destFile = File(context.filesDir, CUSTOM_WALLPAPER_FILENAME)
-    val copied = runCatching {
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(destFile).use { output ->
-                input.copyTo(output)
-            }
-        }
-    }.isSuccess
-    if (!copied || !destFile.exists()) return null
-    return loadPersistedCustomWallpaper(context)
-}
+fun persistAndLoadWallpaperUris(context: Context, uris: List<Uri>): List<UploadedWallpaper> {
+    if (uris.isEmpty()) return emptyList()
+    val dir = File(context.filesDir, UPLOADED_WALLPAPERS_DIR).apply { mkdirs() }
+    val stamp = System.currentTimeMillis()
 
-fun loadPersistedCustomWallpaper(context: Context): ImageBitmap? {
-    val file = File(context.filesDir, CUSTOM_WALLPAPER_FILENAME)
-    if (!file.exists() || file.length() <= 0L) return null
-
-    return runCatching {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val source = ImageDecoder.createSource(file)
-            ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                val longest = max(info.size.width, info.size.height)
-                if (longest > MAX_WALLPAPER_EDGE_PX) {
-                    val ratio = MAX_WALLPAPER_EDGE_PX.toFloat() / longest.toFloat()
-                    decoder.setTargetSize(
-                        (info.size.width * ratio).roundToInt().coerceAtLeast(1),
-                        (info.size.height * ratio).roundToInt().coerceAtLeast(1),
-                    )
+    return uris.mapIndexedNotNull { idx, uri ->
+        val id = "wp_${stamp}_$idx.bin"
+        val destFile = File(dir, id)
+        val copied = runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
                 }
-            }.asImageBitmap()
-        } else {
-            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(file.absolutePath, boundsOpts)
-            val longest = max(boundsOpts.outWidth, boundsOpts.outHeight)
-            var sampleSize = 1
-            while (longest / sampleSize > MAX_WALLPAPER_EDGE_PX) {
-                sampleSize *= 2
             }
-            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-            BitmapFactory.decodeFile(file.absolutePath, decodeOpts)?.asImageBitmap()
+        }.isSuccess
+        if (!copied || !destFile.exists() || destFile.length() <= 0L) {
+            destFile.delete()
+            return@mapIndexedNotNull null
         }
-    }.getOrNull()
+        val bmp = decodeWallpaperFile(destFile)
+        if (bmp == null) {
+            destFile.delete()
+            null
+        } else {
+            UploadedWallpaper(id = id, bitmap = bmp)
+        }
+    }
 }
+
+fun loadAllUploadedWallpapers(context: Context): List<UploadedWallpaper> {
+    val dir = File(context.filesDir, UPLOADED_WALLPAPERS_DIR).apply { mkdirs() }
+    val legacyFile = File(context.filesDir, LEGACY_WALLPAPER_FILENAME)
+    if (legacyFile.exists() && legacyFile.length() > 0L) {
+        val migrated = File(dir, "wp_legacy.bin")
+        if (!migrated.exists()) {
+            runCatching { legacyFile.copyTo(migrated, overwrite = true) }
+        }
+        legacyFile.delete()
+    }
+
+    val files = dir.listFiles()
+        ?.filter { it.isFile && it.length() > 0L }
+        ?.sortedByDescending { it.lastModified() }
+        ?: emptyList()
+
+    return files.mapNotNull { file ->
+        decodeWallpaperFile(file)?.let { bmp ->
+            UploadedWallpaper(id = file.name, bitmap = bmp)
+        }
+    }
+}
+
+fun deleteUploadedWallpaperFile(context: Context, id: String) {
+    val file = File(File(context.filesDir, UPLOADED_WALLPAPERS_DIR), id)
+    if (file.exists()) {
+        file.delete()
+    }
+}
+
+private fun decodeWallpaperFile(file: File): ImageBitmap? = runCatching {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        val source = ImageDecoder.createSource(file)
+        ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            val longest = max(info.size.width, info.size.height)
+            if (longest > MAX_WALLPAPER_EDGE_PX) {
+                val ratio = MAX_WALLPAPER_EDGE_PX.toFloat() / longest.toFloat()
+                decoder.setTargetSize(
+                    (info.size.width * ratio).roundToInt().coerceAtLeast(1),
+                    (info.size.height * ratio).roundToInt().coerceAtLeast(1),
+                )
+            }
+        }.asImageBitmap()
+    } else {
+        val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, boundsOpts)
+        val longest = max(boundsOpts.outWidth, boundsOpts.outHeight)
+        var sampleSize = 1
+        while (longest / sampleSize > MAX_WALLPAPER_EDGE_PX) {
+            sampleSize *= 2
+        }
+        val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        BitmapFactory.decodeFile(file.absolutePath, decodeOpts)?.asImageBitmap()
+    }
+}.getOrNull()

@@ -74,3 +74,13 @@ val WallpaperMintOrbit = Color(0xFF9BF6D5)
 val WallpaperBauhausTeal = Color(0xFF1E5266)
 val WallpaperMonoGridLine = Color(0xFF1E2232)
 val WallpaperMonoArc = Color(0xFFEDEFF5)
+
+// Alight-Style Layered Timeline Palette
+val TimelinePanelBg = Color(0xFF131520)
+val TimelinePillBg = Color(0xFF232635)
+val TimelinePillSelectedBg = Color(0xFF2E3348)
+val TimelineTimecodeBg = Color(0xFF262B3D)
+val TimelineTrackPurple = Color(0xFF6B3FD1)
+val TimelineTrackAmber = Color(0xFFF6C445)
+val TimelineTrackBlue = Color(0xFF2D95EC)
+val TimelineTickColor = Color(0xFF4B5066)
