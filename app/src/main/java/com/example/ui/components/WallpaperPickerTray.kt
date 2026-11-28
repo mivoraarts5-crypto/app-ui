@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -56,7 +57,6 @@ import com.example.ui.UploadedWallpaper
 import com.example.ui.WallpaperPreset
 import com.example.ui.theme.LocalTropicalPalette
 import com.example.ui.theme.TropicalWhite
-import com.example.ui.theme.hard2dShadow
 
 @Composable
 fun WallpaperPickerTray(
@@ -72,7 +72,7 @@ fun WallpaperPickerTray(
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalTropicalPalette.current
-    val trayShape = RoundedCornerShape(20.dp)
+    val trayShape = RoundedCornerShape(18.dp)
     val closeDesc = stringResource(R.string.close_wallpaper_picker_desc)
     val deviceDesc = stringResource(R.string.pick_wallpaper_photo_desc)
     val uploadDesc = stringResource(R.string.upload_wallpaper_card_desc)
@@ -83,22 +83,16 @@ fun WallpaperPickerTray(
 
     Box(
         modifier = modifier
-            .padding(end = 3.dp, bottom = 3.dp)
-            .hard2dShadow(
-                shape = trayShape,
-                shadowColor = palette.hardShadowDark,
-                offsetX = 4.dp,
-                offsetY = 4.dp,
-            )
+            .shadow(elevation = 3.dp, shape = trayShape, clip = false)
             .clip(trayShape)
-            .background(palette.glassDarkSurface)
-            .border(1.8.dp, palette.glassDarkBorder, trayShape)
+            .background(palette.playSurfaceWhite)
+            .border(1.dp, palette.playChipBorder, trayShape)
             .testTag("wallpaper_picker_tray"),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -112,57 +106,54 @@ fun WallpaperPickerTray(
                     Box(
                         modifier = Modifier
                             .size(28.dp)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(palette.acidLime)
-                            .border(1.4.dp, palette.inkBlack, RoundedCornerShape(9.dp)),
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(palette.playChipActiveBg),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Wallpaper,
                             contentDescription = null,
-                            tint = palette.inkBlack,
+                            tint = palette.playBlueAccent,
                             modifier = Modifier.size(16.dp),
                         )
                     }
                     Text(
                         text = stringResource(R.string.wallpaper_picker_title),
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
-                        color = TropicalWhite,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                        color = palette.playTextPrimary,
                     )
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(palette.graphicElevated)
-                            .border(1.dp, palette.glassDarkBorder, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 7.dp, vertical = 2.dp),
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(palette.playSurfaceSubtle)
+                            .border(1.dp, palette.playDivider, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
                         Text(
                             text = stringResource(R.string.wallpaper_presets_count_fmt, totalOptionsCount),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = palette.mutedText,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium,
+                            ),
+                            color = palette.playTextSecondary,
                         )
                     }
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    val deviceBtnShape = RoundedCornerShape(10.dp)
+                    val deviceBtnShape = RoundedCornerShape(999.dp)
                     Row(
                         modifier = Modifier
-                            .padding(end = 2.dp, bottom = 2.dp)
-                            .hard2dShadow(
-                                shape = deviceBtnShape,
-                                shadowColor = palette.inkBlack,
-                                offsetX = 2.dp,
-                                offsetY = 2.dp,
-                            )
                             .clip(deviceBtnShape)
-                            .background(palette.searchButtonBlue)
-                            .border(1.2.dp, TropicalWhite.copy(alpha = 0.85f), deviceBtnShape)
+                            .background(palette.playVioletCta)
                             .clickable(role = Role.Button, onClick = onPickFromDeviceFiles)
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                             .semantics { contentDescription = deviceDesc }
                             .testTag("pick_wallpaper_photo_button"),
                         verticalAlignment = Alignment.CenterVertically,
@@ -177,8 +168,8 @@ fun WallpaperPickerTray(
                         Text(
                             text = stringResource(R.string.pick_wallpaper_photo),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
                             ),
                             color = TropicalWhite,
                         )
@@ -192,16 +183,16 @@ fun WallpaperPickerTray(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(26.dp)
                                 .clip(CircleShape)
-                                .background(palette.graphicElevated)
-                                .border(1.2.dp, palette.glassDarkBorder, CircleShape),
+                                .background(palette.playSurfaceSubtle)
+                                .border(1.dp, palette.playDivider, CircleShape),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Close,
                                 contentDescription = closeDesc,
-                                tint = TropicalWhite,
+                                tint = palette.playTextPrimary,
                                 modifier = Modifier.size(14.dp),
                             )
                         }
@@ -209,16 +200,16 @@ fun WallpaperPickerTray(
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(palette.glassDarkBorder),
+                    .background(palette.playDivider),
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             LazyRow(
                 contentPadding = PaddingValues(end = 4.dp),
@@ -227,56 +218,48 @@ fun WallpaperPickerTray(
             ) {
                 // Dedicated first-position Upload tile for instant gallery wallpaper upload
                 item(key = "upload_from_gallery_tile") {
-                    val tileShape = RoundedCornerShape(14.dp)
+                    val tileShape = RoundedCornerShape(16.dp)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .width(72.dp)
+                            .width(74.dp)
                             .clickable(role = Role.Button, onClick = onPickFromGallery)
                             .semantics { contentDescription = uploadDesc }
                             .testTag("upload_wallpaper_tile"),
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(width = 72.dp, height = 94.dp)
-                                .padding(end = 2.5.dp, bottom = 2.5.dp)
-                                .hard2dShadow(
-                                    shape = tileShape,
-                                    shadowColor = palette.acidLime,
-                                    offsetX = 2.5.dp,
-                                    offsetY = 2.5.dp,
-                                )
+                                .size(width = 74.dp, height = 94.dp)
                                 .clip(tileShape)
-                                .background(palette.graphicElevated)
-                                .border(1.6.dp, palette.acidLime, tileShape),
+                                .background(palette.playSurfaceLavender)
+                                .border(1.5.dp, palette.playVioletCta, tileShape),
                             contentAlignment = Alignment.Center,
                         ) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(5.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .size(34.dp)
                                         .clip(CircleShape)
-                                        .background(palette.acidLime)
-                                        .border(1.2.dp, palette.inkBlack, CircleShape),
+                                        .background(palette.playVioletCta),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.AddPhotoAlternate,
                                         contentDescription = uploadDesc,
-                                        tint = palette.inkBlack,
+                                        tint = TropicalWhite,
                                         modifier = Modifier.size(18.dp),
                                     )
                                 }
                                 Text(
                                     text = stringResource(R.string.upload_wallpaper_card_label),
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
                                     ),
-                                    color = palette.acidLime,
+                                    color = palette.playVioletCta,
                                 )
                             }
                         }
@@ -286,10 +269,10 @@ fun WallpaperPickerTray(
                         Text(
                             text = stringResource(R.string.wallpaper_custom_photo),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium,
                             ),
-                            color = palette.dateWhite,
+                            color = palette.playTextPrimary,
                             maxLines = 1,
                         )
                     }
@@ -332,7 +315,7 @@ private fun UploadedWallpaperTile(
     onRemove: () -> Unit,
 ) {
     val palette = LocalTropicalPalette.current
-    val tileShape = RoundedCornerShape(14.dp)
+    val tileShape = RoundedCornerShape(16.dp)
 
     val cardScale by animateFloatAsState(
         targetValue = if (isSelected) 1.03f else 1f,
@@ -340,7 +323,7 @@ private fun UploadedWallpaperTile(
         label = "uploaded_tile_scale",
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) palette.acidLime else palette.glassDarkBorder,
+        targetValue = if (isSelected) palette.playBlueAccent else palette.playChipBorder,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "uploaded_tile_border",
     )
@@ -348,24 +331,17 @@ private fun UploadedWallpaperTile(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(72.dp)
+            .width(74.dp)
             .scale(cardScale.coerceAtLeast(0.95f))
             .clickable(role = Role.RadioButton, onClick = onSelect)
             .testTag("uploaded_wallpaper_${item.id}"),
     ) {
         Box(
             modifier = Modifier
-                .size(width = 72.dp, height = 94.dp)
-                .padding(end = 2.5.dp, bottom = 2.5.dp)
-                .hard2dShadow(
-                    shape = tileShape,
-                    shadowColor = if (isSelected) palette.acidLime else palette.hardShadowDeep,
-                    offsetX = 2.5.dp,
-                    offsetY = 2.5.dp,
-                )
+                .size(width = 74.dp, height = 94.dp)
                 .clip(tileShape)
                 .border(
-                    width = if (isSelected) 2.dp else 1.4.dp,
+                    width = if (isSelected) 2.2.dp else 1.dp,
                     color = borderColor,
                     shape = tileShape,
                 ),
@@ -381,11 +357,10 @@ private fun UploadedWallpaperTile(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(4.dp)
+                    .padding(5.dp)
                     .size(18.dp)
                     .clip(CircleShape)
-                    .background(palette.inkBlack.copy(alpha = 0.8f))
-                    .border(1.dp, TropicalWhite.copy(alpha = 0.65f), CircleShape)
+                    .background(palette.playTextPrimary.copy(alpha = 0.82f))
                     .clickable(role = Role.Button, onClick = onRemove)
                     .semantics { contentDescription = removeDesc }
                     .testTag("remove_uploaded_wallpaper_${item.id}"),
@@ -403,17 +378,16 @@ private fun UploadedWallpaperTile(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(4.dp)
+                        .padding(5.dp)
                         .size(18.dp)
                         .clip(CircleShape)
-                        .background(palette.acidLime)
-                        .border(1.2.dp, palette.inkBlack, CircleShape),
+                        .background(palette.playBlueAccent),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Check,
                         contentDescription = null,
-                        tint = palette.inkBlack,
+                        tint = TropicalWhite,
                         modifier = Modifier.size(12.dp),
                     )
                 }
@@ -425,10 +399,10 @@ private fun UploadedWallpaperTile(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 10.sp,
-                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                fontSize = 10.5.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             ),
-            color = if (isSelected) palette.acidLime else palette.dateWhite,
+            color = if (isSelected) palette.playNavActiveLabel else palette.playTextPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -443,7 +417,7 @@ private fun WallpaperPresetTile(
 ) {
     val palette = LocalTropicalPalette.current
     val label = stringResource(preset.labelRes)
-    val tileShape = RoundedCornerShape(14.dp)
+    val tileShape = RoundedCornerShape(16.dp)
 
     val cardScale by animateFloatAsState(
         targetValue = if (isSelected) 1.03f else 1f,
@@ -451,7 +425,7 @@ private fun WallpaperPresetTile(
         label = "wallpaper_tile_scale",
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) palette.acidLime else palette.glassDarkBorder,
+        targetValue = if (isSelected) palette.playBlueAccent else palette.playChipBorder,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "wallpaper_tile_border",
     )
@@ -459,24 +433,17 @@ private fun WallpaperPresetTile(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(72.dp)
+            .width(74.dp)
             .scale(cardScale.coerceAtLeast(0.95f))
             .clickable(role = Role.RadioButton, onClick = onClick)
             .testTag("wallpaper_preset_${preset.name.lowercase()}"),
     ) {
         Box(
             modifier = Modifier
-                .size(width = 72.dp, height = 94.dp)
-                .padding(end = 2.5.dp, bottom = 2.5.dp)
-                .hard2dShadow(
-                    shape = tileShape,
-                    shadowColor = if (isSelected) palette.acidLime else palette.hardShadowDeep,
-                    offsetX = 2.5.dp,
-                    offsetY = 2.5.dp,
-                )
+                .size(width = 74.dp, height = 94.dp)
                 .clip(tileShape)
                 .border(
-                    width = if (isSelected) 2.dp else 1.4.dp,
+                    width = if (isSelected) 2.2.dp else 1.dp,
                     color = borderColor,
                     shape = tileShape,
                 ),
@@ -494,14 +461,13 @@ private fun WallpaperPresetTile(
                         .padding(5.dp)
                         .size(18.dp)
                         .clip(CircleShape)
-                        .background(palette.acidLime)
-                        .border(1.2.dp, palette.inkBlack, CircleShape),
+                        .background(palette.playBlueAccent),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Check,
                         contentDescription = null,
-                        tint = palette.inkBlack,
+                        tint = TropicalWhite,
                         modifier = Modifier.size(12.dp),
                     )
                 }
@@ -513,10 +479,10 @@ private fun WallpaperPresetTile(
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 10.sp,
-                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                fontSize = 10.5.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             ),
-            color = if (isSelected) palette.acidLime else palette.dateWhite,
+            color = if (isSelected) palette.playNavActiveLabel else palette.playTextPrimary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

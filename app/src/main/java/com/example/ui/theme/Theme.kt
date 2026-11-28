@@ -3,7 +3,7 @@ package com.example.ui.theme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -28,8 +28,8 @@ data class TropicalPalette(
     val mutedText: Color = TropicalMuted,
     val helloWhite: Color = TropicalHelloWhite,
     val dateWhite: Color = TropicalSoftWhite,
-    val overlayBackground: Color = TropicalOverlayDark,
-    val toastBackground: Color = TropicalToastBg,
+    val overlayBackground: Color = PlaySurfaceWhite,
+    val toastBackground: Color = PlayTextPrimary,
     val glassWhiteSurface: Color = GlassWhiteSurface,
     val glassWhiteBorder: Color = GlassWhiteBorder,
     val glassDarkSurface: Color = GraphicDarkSurface,
@@ -66,29 +66,57 @@ data class TropicalPalette(
     val timelineTrackAmber: Color = TimelineTrackAmber,
     val timelineTrackBlue: Color = TimelineTrackBlue,
     val timelineTickColor: Color = TimelineTickColor,
+    val playSurfaceWhite: Color = PlaySurfaceWhite,
+    val playSurfaceSubtle: Color = PlaySurfaceSubtle,
+    val playSurfaceLavender: Color = PlaySurfaceLavender,
+    val playChipBg: Color = PlayChipBg,
+    val playChipActiveBg: Color = PlayChipActiveBg,
+    val playChipBorder: Color = PlayChipBorder,
+    val playDivider: Color = PlayDivider,
+    val playNavBarBg: Color = PlayNavBarBg,
+    val playNavPillBlue: Color = PlayNavPillBlue,
+    val playNavActiveInk: Color = PlayNavActiveInk,
+    val playNavActiveLabel: Color = PlayNavActiveLabel,
+    val playNavInactive: Color = PlayNavInactive,
+    val playBlueAccent: Color = PlayBlueAccent,
+    val playVioletCta: Color = PlayVioletCta,
+    val playHeroDeep: Color = PlayHeroDeep,
+    val playHeroMid: Color = PlayHeroMid,
+    val playHeroBright: Color = PlayHeroBright,
+    val playAvatarPurple: Color = PlayAvatarPurple,
+    val playTextPrimary: Color = PlayTextPrimary,
+    val playTextSecondary: Color = PlayTextSecondary,
+    val playInstalledGreen: Color = PlayInstalledGreen,
+    val playStarAmber: Color = PlayStarAmber,
 )
 
 val LocalTropicalPalette = staticCompositionLocalOf { TropicalPalette() }
 
-private val TropicalDarkColorScheme = darkColorScheme(
-    primary = TropicalOrange,
+private val PlayLightColorScheme = lightColorScheme(
+    primary = PlayVioletCta,
     onPrimary = TropicalWhite,
-    secondary = TropicalBlueButton,
+    primaryContainer = PlayNavPillBlue,
+    onPrimaryContainer = PlayNavActiveInk,
+    secondary = PlayBlueAccent,
     onSecondary = TropicalWhite,
-    tertiary = TropicalAcidLime,
-    onTertiary = TropicalBlack,
-    background = TropicalBlack,
-    onBackground = TropicalWhite,
-    surface = GraphicDarkSurface,
-    onSurface = TropicalWhite,
-    surfaceVariant = GraphicDarkElevated,
-    onSurfaceVariant = TropicalMuted,
+    secondaryContainer = PlayChipActiveBg,
+    onSecondaryContainer = PlayNavActiveInk,
+    tertiary = TropicalOrange,
+    onTertiary = TropicalWhite,
+    background = PlaySurfaceWhite,
+    onBackground = PlayTextPrimary,
+    surface = PlaySurfaceWhite,
+    onSurface = PlayTextPrimary,
+    surfaceVariant = PlaySurfaceSubtle,
+    onSurfaceVariant = PlayTextSecondary,
+    outline = PlayChipBorder,
+    outlineVariant = PlayDivider,
 )
 
 private val TropicalShapes = Shapes(
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(18.dp),
-    large = RoundedCornerShape(26.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(22.dp),
 )
 
 @Composable
@@ -97,7 +125,7 @@ fun TropicalTheme(
 ) {
     CompositionLocalProvider(LocalTropicalPalette provides TropicalPalette()) {
         MaterialTheme(
-            colorScheme = TropicalDarkColorScheme,
+            colorScheme = PlayLightColorScheme,
             typography = Typography,
             shapes = TropicalShapes,
             content = content,

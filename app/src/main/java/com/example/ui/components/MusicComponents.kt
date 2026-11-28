@@ -137,28 +137,22 @@ fun MusicPickerTray(
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalTropicalPalette.current
-    val trayShape = RoundedCornerShape(20.dp)
+    val trayShape = RoundedCornerShape(18.dp)
     val closeDesc = stringResource(R.string.close_music_picker_desc)
     val pickDeviceDesc = stringResource(R.string.pick_from_device_desc)
 
     Box(
         modifier = modifier
-            .padding(end = 3.dp, bottom = 3.dp)
-            .hard2dShadow(
-                shape = trayShape,
-                shadowColor = palette.hardShadowDark,
-                offsetX = 4.dp,
-                offsetY = 4.dp,
-            )
+            .shadow(elevation = 3.dp, shape = trayShape, clip = false)
             .clip(trayShape)
-            .background(palette.glassDarkSurface)
-            .border(1.8.dp, palette.glassDarkBorder, trayShape)
+            .background(palette.playSurfaceWhite)
+            .border(1.dp, palette.playChipBorder, trayShape)
             .testTag("music_picker_tray"),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -171,61 +165,57 @@ fun MusicPickerTray(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(26.dp)
-                            .hard2dShadow(CircleShape, palette.hardShadowDeep, 1.5.dp, 1.5.dp)
-                            .clip(CircleShape)
-                            .background(IconMusicRed)
-                            .border(1.2.dp, palette.inkBlack, CircleShape),
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(IconMusicRed),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.MusicNote,
                             contentDescription = null,
                             tint = TropicalWhite,
-                            modifier = Modifier.size(15.dp),
+                            modifier = Modifier.size(16.dp),
                         )
                     }
                     Text(
                         text = stringResource(R.string.music_library_title),
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 13.sp,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
                         ),
-                        color = TropicalWhite,
+                        color = palette.playTextPrimary,
                     )
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(palette.graphicElevated)
-                            .border(1.dp, palette.glassDarkBorder, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 7.dp, vertical = 2.dp),
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(palette.playSurfaceSubtle)
+                            .border(1.dp, palette.playDivider, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
                         Text(
                             text = stringResource(R.string.music_tracks_count_fmt, tracks.size),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium,
                             ),
-                            color = palette.mutedText,
+                            color = palette.playTextSecondary,
                         )
                     }
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    val deviceShape = RoundedCornerShape(10.dp)
+                    val deviceShape = RoundedCornerShape(999.dp)
                     Box(
                         modifier = Modifier
-                            .hard2dShadow(deviceShape, palette.hardShadowDeep, 2.dp, 2.dp)
                             .clip(deviceShape)
-                            .background(palette.searchButtonBlue)
-                            .border(1.3.dp, TropicalWhite, deviceShape)
+                            .background(palette.playVioletCta)
                             .clickable(role = Role.Button, onClick = onPickFromDevice)
                             .semantics { contentDescription = pickDeviceDesc }
                             .testTag("pick_device_music_button")
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -235,13 +225,13 @@ fun MusicPickerTray(
                                 imageVector = Icons.Rounded.FolderOpen,
                                 contentDescription = null,
                                 tint = TropicalWhite,
-                                modifier = Modifier.size(13.dp),
+                                modifier = Modifier.size(14.dp),
                             )
                             Text(
                                 text = stringResource(R.string.pick_from_device),
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
                                 ),
                                 color = TropicalWhite,
                             )
@@ -252,8 +242,8 @@ fun MusicPickerTray(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(palette.graphicElevated)
-                            .border(1.2.dp, palette.glassDarkBorder, CircleShape)
+                            .background(palette.playSurfaceSubtle)
+                            .border(1.dp, palette.playDivider, CircleShape)
                             .clickable(role = Role.Button, onClick = onClose)
                             .semantics { contentDescription = closeDesc }
                             .testTag("close_music_picker_button"),
@@ -262,32 +252,32 @@ fun MusicPickerTray(
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = closeDesc,
-                            tint = TropicalWhite,
+                            tint = palette.playTextPrimary,
                             modifier = Modifier.size(15.dp),
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(7.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = if (addedTrackIds.isNotEmpty()) 112.dp else 160.dp),
+                    .heightIn(max = if (addedTrackIds.isNotEmpty()) 136.dp else 176.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 items(tracks, key = { it.id }) { track ->
                     val isAdded = track.id in addedTrackIds
                     val accentColor = track.accent.resolveColor(palette)
-                    val rowShape = RoundedCornerShape(13.dp)
+                    val rowShape = RoundedCornerShape(14.dp)
                     val rowBg by animateColorAsState(
-                        targetValue = if (isAdded) palette.graphicElevated else palette.islandBlack,
+                        targetValue = if (isAdded) palette.playChipActiveBg else palette.playSurfaceSubtle,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                         label = "track_row_bg",
                     )
                     val rowBorder by animateColorAsState(
-                        targetValue = if (isAdded) accentColor else palette.glassDarkBorder,
+                        targetValue = if (isAdded) palette.playBlueAccent else palette.playDivider,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                         label = "track_row_border",
                     )
@@ -295,16 +285,9 @@ fun MusicPickerTray(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(end = 2.dp, bottom = 2.dp)
-                            .hard2dShadow(
-                                shape = rowShape,
-                                shadowColor = if (isAdded) accentColor else palette.hardShadowDeep,
-                                offsetX = 2.dp,
-                                offsetY = 2.dp,
-                            )
                             .clip(rowShape)
                             .background(rowBg)
-                            .border(if (isAdded) 1.6.dp else 1.2.dp, rowBorder, rowShape)
+                            .border(if (isAdded) 1.4.dp else 1.dp, rowBorder, rowShape)
                             .clickable(role = Role.Button) { onSelectTrack(track) }
                             .padding(horizontal = 10.dp, vertical = 8.dp)
                             .testTag("music_track_${track.id}"),
@@ -313,16 +296,15 @@ fun MusicPickerTray(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(accentColor)
-                                .border(1.4.dp, palette.inkBlack, CircleShape),
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(accentColor),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
                                 imageVector = if (isAdded) Icons.Rounded.GraphicEq else Icons.Rounded.MusicNote,
                                 contentDescription = null,
-                                tint = palette.inkBlack,
+                                tint = TropicalWhite,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -336,16 +318,16 @@ fun MusicPickerTray(
                                     text = track.title,
                                     style = MaterialTheme.typography.labelLarge.copy(
                                         fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
+                                        fontWeight = FontWeight.SemiBold,
                                     ),
-                                    color = TropicalWhite,
+                                    color = palette.playTextPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f, fill = false),
                                 )
                                 if (track.isFromDevice) {
                                     Surface(
-                                        color = palette.searchButtonBlue.copy(alpha = 0.28f),
+                                        color = palette.playChipActiveBg,
                                         shape = RoundedCornerShape(999.dp),
                                     ) {
                                         Text(
@@ -354,7 +336,7 @@ fun MusicPickerTray(
                                                 fontSize = 9.sp,
                                                 fontWeight = FontWeight.Bold,
                                             ),
-                                            color = TropicalWhite,
+                                            color = palette.playNavActiveLabel,
                                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
                                         )
                                     }
@@ -362,20 +344,27 @@ fun MusicPickerTray(
                             }
                             Text(
                                 text = "${track.artist} • ${track.duration}",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                color = palette.mutedText,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Normal,
+                                ),
+                                color = palette.playTextSecondary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
 
-                        val pillShape = RoundedCornerShape(9.dp)
+                        val pillShape = RoundedCornerShape(999.dp)
                         Box(
                             modifier = Modifier
                                 .clip(pillShape)
-                                .background(if (isAdded) accentColor else palette.graphicElevated)
-                                .border(1.1.dp, if (isAdded) palette.inkBlack else palette.glassDarkBorder, pillShape)
-                                .padding(horizontal = 9.dp, vertical = 5.dp),
+                                .background(if (isAdded) palette.playVioletCta else palette.playSurfaceWhite)
+                                .border(
+                                    1.dp,
+                                    if (isAdded) palette.playVioletCta else palette.playChipBorder,
+                                    pillShape,
+                                )
+                                .padding(horizontal = 11.dp, vertical = 5.dp),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -384,7 +373,7 @@ fun MusicPickerTray(
                                 Icon(
                                     imageVector = if (isAdded) Icons.Rounded.Check else Icons.Rounded.Add,
                                     contentDescription = null,
-                                    tint = if (isAdded) palette.inkBlack else TropicalWhite,
+                                    tint = if (isAdded) TropicalWhite else palette.playVioletCta,
                                     modifier = Modifier.size(13.dp),
                                 )
                                 Text(
@@ -393,9 +382,9 @@ fun MusicPickerTray(
                                     ),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontSize = 11.sp,
-                                        fontWeight = FontWeight.ExtraBold,
+                                        fontWeight = FontWeight.SemiBold,
                                     ),
-                                    color = if (isAdded) palette.inkBlack else TropicalWhite,
+                                    color = if (isAdded) TropicalWhite else palette.playVioletCta,
                                 )
                             }
                         }

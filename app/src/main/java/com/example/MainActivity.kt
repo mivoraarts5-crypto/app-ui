@@ -19,7 +19,8 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(
                 android.graphics.Color.TRANSPARENT,
             ),
-            navigationBarStyle = SystemBarStyle.dark(
+            navigationBarStyle = SystemBarStyle.light(
+                android.graphics.Color.TRANSPARENT,
                 android.graphics.Color.TRANSPARENT,
             ),
         )

@@ -155,7 +155,7 @@ fun FreehandCanvasCard(
     val canvasDesc = stringResource(R.string.canvas_area_desc)
     val canvasHint = stringResource(R.string.canvas_hint)
 
-    // Pure Freehand Canvas — Crisp Aesthetic 2D Artboard with hard offset shadow
+    // Pure Freehand Canvas — Crisp Studio Artboard
     Box(
         modifier = modifier
             .size(
@@ -163,18 +163,12 @@ fun FreehandCanvasCard(
                 height = animH.coerceAtLeast(140.dp),
             )
             .scale(cardScale.coerceAtLeast(0.9f))
-            .padding(end = 4.dp, bottom = 4.dp)
-            .hard2dShadow(
-                shape = cardShape,
-                shadowColor = if (isDarkCanvas) palette.hardShadowDark else palette.waveBlue.copy(alpha = 0.85f),
-                offsetX = 5.dp,
-                offsetY = 5.dp,
-            )
+            .shadow(elevation = 6.dp, shape = cardShape, clip = false)
             .clip(cardShape)
             .background(animatedCanvasBg)
             .border(
-                width = 2.dp,
-                color = if (isDarkCanvas) palette.graphicLightBorder else palette.inkBlack,
+                width = 1.5.dp,
+                color = if (isDarkCanvas) palette.playChipBorder.copy(alpha = 0.45f) else palette.playChipBorder,
                 shape = cardShape,
             )
             .testTag("freehand_canvas_card")
@@ -342,25 +336,19 @@ fun ExternalCanvasToolbar(
     val bgSwatchDesc = stringResource(R.string.canvas_bg_swatch_desc)
     val ratioDesc = stringResource(R.string.canvas_ratio_desc)
 
-    val toolbarShape = RoundedCornerShape(18.dp)
+    val toolbarShape = RoundedCornerShape(16.dp)
     Box(
         modifier = modifier
-            .padding(end = 3.dp, bottom = 3.dp)
-            .hard2dShadow(
-                shape = toolbarShape,
-                shadowColor = palette.hardShadowDark,
-                offsetX = 3.5.dp,
-                offsetY = 3.5.dp,
-            )
+            .shadow(elevation = 3.dp, shape = toolbarShape, clip = false)
             .clip(toolbarShape)
-            .background(palette.glassDarkSurface)
-            .border(1.6.dp, palette.glassDarkBorder, toolbarShape),
+            .background(palette.playSurfaceWhite)
+            .border(1.dp, palette.playChipBorder, toolbarShape),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             // Row 1: Ratios (1:1, 4:3, 3:4, 9:16, 16:9) + Canvas Background Colors
             Row(
@@ -374,12 +362,12 @@ fun ExternalCanvasToolbar(
                     val selected = ratio == selectedCanvasRatio
                     val chipShape = RoundedCornerShape(8.dp)
                     val chipBg by animateColorAsState(
-                        targetValue = if (selected) palette.acidLime else palette.graphicElevated,
+                        targetValue = if (selected) palette.playChipActiveBg else palette.playSurfaceSubtle,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                         label = "ratio_chip_bg",
                     )
                     val chipTextColor by animateColorAsState(
-                        targetValue = if (selected) palette.inkBlack else palette.dateWhite,
+                        targetValue = if (selected) palette.playNavActiveLabel else palette.playTextPrimary,
                         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
                         label = "ratio_chip_text",
                     )
@@ -388,12 +376,12 @@ fun ExternalCanvasToolbar(
                             .clip(chipShape)
                             .background(chipBg)
                             .border(
-                                width = 1.1.dp,
-                                color = if (selected) palette.inkBlack else palette.glassDarkBorder,
+                                width = 1.dp,
+                                color = if (selected) palette.playBlueAccent else palette.playChipBorder,
                                 shape = chipShape,
                             )
                             .clickable(role = Role.Tab) { onSelectCanvasRatio(ratio) }
-                            .padding(horizontal = 8.dp, vertical = 2.5.dp)
+                            .padding(horizontal = 9.dp, vertical = 3.5.dp)
                             .semantics { contentDescription = ratioDesc }
                             .testTag("canvas_ratio_${ratio.name.lowercase()}"),
                         contentAlignment = Alignment.Center,
@@ -401,8 +389,8 @@ fun ExternalCanvasToolbar(
                         Text(
                             text = stringResource(ratio.labelRes),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                             ),
                             color = chipTextColor,
                         )
@@ -412,26 +400,26 @@ fun ExternalCanvasToolbar(
                 Box(
                     modifier = Modifier
                         .width(1.dp)
-                        .height(12.dp)
-                        .background(Color.White.copy(alpha = 0.16f)),
+                        .height(14.dp)
+                        .background(palette.playDivider),
                 )
 
                 canvasBgColors.forEachIndexed { idx, bgColor ->
                     val selected = idx == selectedCanvasBgIndex
                     val bgScale by animateFloatAsState(
-                        targetValue = if (selected) 1.2f else 1f,
+                        targetValue = if (selected) 1.18f else 1f,
                         animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow),
                         label = "canvas_bg_swatch_scale",
                     )
                     Box(
                         modifier = Modifier
-                            .size(18.dp)
+                            .size(20.dp)
                             .scale(bgScale.coerceAtLeast(0.8f))
                             .clip(CircleShape)
                             .background(bgColor.copy(alpha = 1f))
                             .border(
-                                width = if (selected) 2.dp else 1.dp,
-                                color = if (selected) palette.sunOrange else Color.White.copy(alpha = 0.35f),
+                                width = if (selected) 2.2.dp else 1.dp,
+                                color = if (selected) palette.playVioletCta else palette.playChipBorder,
                                 shape = CircleShape,
                             )
                             .clickable(role = Role.RadioButton) { onSelectCanvasBgColor(idx) }
@@ -444,8 +432,8 @@ fun ExternalCanvasToolbar(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(0.8.dp)
-                    .background(Color.White.copy(alpha = 0.10f)),
+                    .height(1.dp)
+                    .background(palette.playDivider),
             )
 
             // Row 2: Brush Colors + Size + Undo + Clear
@@ -459,24 +447,24 @@ fun ExternalCanvasToolbar(
                         .weight(1f)
                         .horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     brushColors.forEachIndexed { idx, color ->
                         val selected = idx == selectedColorIndex
                         val swatchScale by animateFloatAsState(
-                            targetValue = if (selected) 1.18f else 1f,
+                            targetValue = if (selected) 1.16f else 1f,
                             animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow),
                             label = "swatch_scale",
                         )
                         Box(
                             modifier = Modifier
-                                .size(22.dp)
+                                .size(24.dp)
                                 .scale(swatchScale.coerceAtLeast(0.8f))
                                 .clip(CircleShape)
                                 .background(color)
                                 .border(
-                                    width = if (selected) 2.dp else 1.dp,
-                                    color = if (selected) palette.sunOrange else Color.White.copy(alpha = 0.30f),
+                                    width = if (selected) 2.4.dp else 1.dp,
+                                    color = if (selected) palette.playVioletCta else palette.playChipBorder,
                                     shape = CircleShape,
                                 )
                                 .clickable(role = Role.RadioButton) { onSelectColor(idx) }
@@ -488,12 +476,14 @@ fun ExternalCanvasToolbar(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(30.dp)
+                            .size(32.dp)
                             .clip(CircleShape)
+                            .background(palette.playSurfaceSubtle)
+                            .border(1.dp, palette.playDivider, CircleShape)
                             .clickable(role = Role.Button, onClick = onCycleBrushSize)
                             .semantics { contentDescription = sizeDesc }
                             .testTag("canvas_brush_size"),
@@ -507,10 +497,10 @@ fun ExternalCanvasToolbar(
                                 .clip(CircleShape)
                                 .background(activeBrushColor)
                                 .then(
-                                    when (activeBrushColor) {
-                                        TropicalWhite -> Modifier.border(1.dp, palette.inkBlack.copy(alpha = 0.35f), CircleShape)
-                                        palette.inkBlack -> Modifier.border(1.dp, Color.White.copy(alpha = 0.45f), CircleShape)
-                                        else -> Modifier
+                                    if (activeBrushColor == TropicalWhite) {
+                                        Modifier.border(1.dp, palette.playChipBorder, CircleShape)
+                                    } else {
+                                        Modifier
                                     },
                                 ),
                         )
@@ -520,14 +510,14 @@ fun ExternalCanvasToolbar(
                         onClick = onUndo,
                         enabled = hasStrokes,
                         modifier = Modifier
-                            .size(30.dp)
+                            .size(32.dp)
                             .testTag("canvas_undo_button"),
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.Undo,
                             contentDescription = undoDesc,
-                            tint = if (hasStrokes) TropicalWhite else palette.mutedText.copy(alpha = 0.4f),
-                            modifier = Modifier.size(17.dp),
+                            tint = if (hasStrokes) palette.playTextPrimary else palette.playTextSecondary.copy(alpha = 0.38f),
+                            modifier = Modifier.size(18.dp),
                         )
                     }
 
@@ -535,14 +525,14 @@ fun ExternalCanvasToolbar(
                         onClick = onClear,
                         enabled = hasStrokes,
                         modifier = Modifier
-                            .size(30.dp)
+                            .size(32.dp)
                             .testTag("canvas_clear_button"),
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.DeleteOutline,
                             contentDescription = clearDesc,
-                            tint = if (hasStrokes) IconMusicRed else palette.mutedText.copy(alpha = 0.4f),
-                            modifier = Modifier.size(17.dp),
+                            tint = if (hasStrokes) IconMusicRed else palette.playTextSecondary.copy(alpha = 0.38f),
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
